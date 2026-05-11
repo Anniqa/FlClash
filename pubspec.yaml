@@ -81,6 +81,8 @@ dependencies:
   smooth_sheets: ^1.0.2
   rust_api:
     path: plugins/rust_api
+  setup:
+    path: plugins/setup
 dev_dependencies:
   flutter_test:
     sdk: flutter

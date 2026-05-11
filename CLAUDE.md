@@ -15,18 +15,17 @@ macOS, and Linux. Material You design with Surfboard-like UI.
 # Update submodules first (ClashMeta Go core lives in core/Clash.Meta/)
 git submodule update --init --recursive
 
-# Build core + Flutter app via setup.dart
-dart ./setup.dart android --arch arm64
-dart ./setup.dart android --arch arm --arch-name armeabi-v7a
-dart ./setup.dart android --arch amd64 --arch-name x86_64
-dart ./setup.dart macos --arch arm64
-dart ./setup.dart macos --arch amd64
-dart ./setup.dart linux --arch amd64
-dart ./setup.dart windows --arch amd64
+# Full package build (Go core + Flutter + packaging) via setup.dart
+dart setup.dart macos
+dart setup.dart linux
+dart setup.dart windows
+dart setup.dart android
 
 # Build only the Go core (skip Flutter packaging)
-dart ./setup.dart android --arch arm64 --out core
-dart ./setup.dart macos --arch arm64 --out core
+bash plugins/setup/buildkit/run_build_tool.sh macos
+bash plugins/setup/buildkit/run_build_tool.sh linux
+bash plugins/setup/buildkit/run_build_tool.sh windows
+bash plugins/setup/buildkit/run_build_tool.sh android
 ```
 
 ### Flutter Development
@@ -156,8 +155,33 @@ Desktop: `WindowManager`, `TrayManager`, `HotKeyManager`, `ProxyManager`
 Mobile: `AndroidManager`, `TileManager`, `VpnManager`
 Shared: `ConnectivityManager`, `CoreManager`, `AppStateManager`, `StatusManager`, `ThemeManager`
 
+### Build System
+
+`setup.dart` (project root) is a thin packaging orchestrator: writes `env.json` (APP_ENV), activates `flutter_distributor`,
+then runs it with platform-specific args. It does NOT build Go core directly.
+
+Go core building is handled by `build_tool`, a standalone Dart CLI in `plugins/setup/buildkit/build_tool/`. It is invoked
+per-platform:
+
+- **macOS:** automatically during `flutter build` via setup plugin's CocoaPods podspec script phase (`build_pod.sh` →
+  `run_build_tool.sh pod`)
+- **Linux/Windows:** automatically during `flutter build` via setup plugin's CMake include (`buildkit/cmake/buildkit.cmake`)
+- **Android:** automatically during `flutter build` via setup plugin's Gradle include (`buildkit/gradle/plugin.gradle`)
+
+`plugins/setup/` is an FFI plugin that exists solely as a build harness — it carries no Dart API, only platform build hooks
+(podspec, CMake, Gradle) that trigger Go compilation. Windows builds also compile a Rust helper (`services/helper/`) via
+`RustBuilder`.
+
+Build configuration defaults live in `build_tool/lib/src/options.dart` and can be overridden via `build_config.yaml`
+in the project root.
+
+Architecture detection is automatic (host arch via `uname -m` on Unix, `PROCESSOR_ARCHITECTURE` on Windows). The
+`--description` flag passed to flutter_distributor adds arch suffix to artifact names (e.g.,
+`FlClash-0.8.93-macos-arm64.dmg`).
+
 ### Local Plugins (`plugins/`)
 
+- `setup` - Build harness FFI plugin (triggers Go/Rust compilation per platform)
 - `proxy` - System proxy configuration
 - `rust_api` - Flutter Rust Bridge FFI plugin (named pipe / local socket communication)
 - `tray_manager` - System tray (forked/custom)
