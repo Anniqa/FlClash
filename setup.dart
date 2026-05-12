@@ -116,20 +116,16 @@ Future<int> _package(
     flutterBuildArgs.add('split-per-abi');
   }
 
-  // Auto-detect host arch for artifact naming on desktop platforms
+  // Auto-detect host arch (used for deps, description, etc.)
+  final arch = _detectArch();
   final descriptionArgs = <String>[];
   if (platform != 'android') {
-    String arch;
-    if (Platform.isWindows) {
-      final pa = Platform.environment['PROCESSOR_ARCHITECTURE'] ?? 'AMD64';
-      arch = pa.toUpperCase() == 'ARM64' ? 'arm64' : 'amd64';
-    } else {
-      final result = Process.runSync('uname', ['-m']);
-      final machine = (result.stdout as String).trim();
-      arch = machine == 'aarch64' ? 'arm64' : machine;
-    }
     descriptionArgs.addAll(['--description', arch]);
   }
+
+  // Install platform build dependencies (skips if already present)
+  final depExit = await _ensureDependencies(platform, arch);
+  if (depExit != 0) return depExit;
 
   final process = await Process.start('flutter_distributor', [
     'package',
@@ -147,4 +143,110 @@ Future<int> _package(
   final exitCode = await process.exitCode;
   await Future.wait([stdoutDone, stderrDone]);
   return exitCode;
+}
+
+String _detectArch() {
+  if (Platform.isWindows) {
+    final pa = Platform.environment['PROCESSOR_ARCHITECTURE'] ?? 'AMD64';
+    return pa.toUpperCase() == 'ARM64' ? 'arm64' : 'amd64';
+  }
+  final result = Process.runSync('uname', ['-m']);
+  final machine = (result.stdout as String).trim();
+  return machine == 'aarch64' ? 'arm64' : machine;
+}
+
+Future<bool> _hasCommand(String cmd) async {
+  final which = Platform.isWindows ? 'where' : 'command';
+  final args = Platform.isWindows ? [cmd] : ['-v', cmd];
+  final result = await Process.run(which, args);
+  return result.exitCode == 0;
+}
+
+/// Install platform-specific build dependencies, skipping if already present.
+Future<int> _ensureDependencies(String platform, String arch) async {
+  switch (platform) {
+    case 'macos':
+      return _ensureMacosDependencies();
+    case 'linux':
+      return _ensureLinuxDependencies(arch);
+    default:
+      return 0;
+  }
+}
+
+Future<int> _ensureMacosDependencies() async {
+  if (await _hasCommand('appdmg')) {
+    stdout.writeln('appdmg already installed, skipping.');
+    return 0;
+  }
+  stdout.writeln('Installing appdmg (DMG creator)...');
+  final result = await Process.run('npm', ['install', '-g', 'appdmg']);
+  if (result.exitCode != 0) {
+    stderr.write(result.stderr);
+  }
+  return result.exitCode;
+}
+
+Future<int> _ensureLinuxDependencies(String arch) async {
+  final pkgs = <String>[
+    'ninja-build',
+    'libgtk-3-dev',
+    'libayatana-appindicator3-dev',
+    'libkeybinder-3.0-dev',
+    'locate',
+  ];
+  if (arch == 'amd64') {
+    pkgs.addAll(['rpm', 'patchelf', 'libfuse2']);
+  }
+
+  // Check which packages are already installed
+  final missingPkgs = <String>[];
+  for (final pkg in pkgs) {
+    final result = await Process.run('dpkg', ['-s', pkg]);
+    final installed =
+        result.exitCode == 0 &&
+        (result.stdout as String).contains('Status: install ok installed');
+    if (!installed) missingPkgs.add(pkg);
+  }
+
+  if (missingPkgs.isEmpty) {
+    stdout.writeln('All Linux build dependencies already installed, skipping.');
+  } else {
+    stdout.writeln(
+      'Installing Linux build dependencies: ${missingPkgs.join(', ')}...',
+    );
+    final result = await Process.start('sudo', [
+      'apt',
+      'install',
+      '-y',
+      ...missingPkgs,
+    ]);
+    result.stdout.pipe(stdout);
+    result.stderr.pipe(stderr);
+    final exitCode = await result.exitCode;
+    if (exitCode != 0) return exitCode;
+  }
+
+  // AppImage tool (amd64 only)
+  if (arch == 'amd64') {
+    const appimagetool = '/usr/local/bin/appimagetool';
+    if (File(appimagetool).existsSync()) {
+      stdout.writeln('appimagetool already installed, skipping.');
+      return 0;
+    }
+    stdout.writeln('Downloading appimagetool...');
+    final downloadName = arch == 'amd64' ? 'x86_64' : 'aarch64';
+    final dlResult = await Process.run('wget', [
+      '-O',
+      appimagetool,
+      'https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-$downloadName.AppImage',
+    ]);
+    if (dlResult.exitCode != 0) {
+      stderr.write(dlResult.stderr);
+      return dlResult.exitCode;
+    }
+    await Process.run('chmod', ['+x', appimagetool]);
+  }
+
+  return 0;
 }
