@@ -65,6 +65,10 @@ docs/
 /android/app/src/main/jniLibs/
 /services/helper/target
 /macos/**/Package.resolved
+/macos/build/
+/env.json
+/core/*.exe
+/plugins/rust_api/.claude/
 devtools_options.yaml
 
 # FVM Version Cache
