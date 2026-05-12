@@ -17,13 +17,11 @@ class RustBuilder {
   String get _helperPath => p.join(rootDir, config.helperDir);
   String get _outputPath => p.join(rootDir, config.outputDir);
 
-  Future<String> build(Target target, String token) async {
-    final args = [
-      'build',
-      '--release',
-      '--features',
-      'windows-service',
-    ];
+  Future<String> build(Target target, String token, {bool release = true}) async {
+    final args = ['build'];
+    if (release) {
+      args.addAll(['--release', '--features', 'windows-service']);
+    }
     final env = {'TOKEN': token};
 
     _log.info(kDoubleSeparator);
@@ -34,7 +32,7 @@ class RustBuilder {
         workingDirectory: _helperPath, environment: env);
 
     final srcPath = p.join(
-      _helperPath, 'target', 'release',
+      _helperPath, 'target', release ? 'release' : 'debug',
       'helper${target.executableExtension}',
     );
     final destDir = p.join(_outputPath, target.goos);

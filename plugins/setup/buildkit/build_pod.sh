@@ -18,4 +18,4 @@ if [ -z "${APP_ENV:-}" ]; then
   export APP_ENV="pre"
 fi
 
-exec "$SCRIPT_DIR/run_build_tool.sh" pod
+exec "$SCRIPT_DIR/run_build_tool.sh" macos

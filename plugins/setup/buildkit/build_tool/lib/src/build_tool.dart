@@ -5,9 +5,6 @@ import 'package:args/command_runner.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
-import 'build_cmake.dart';
-import 'build_gradle.dart';
-import 'build_pod.dart';
 import 'error.dart';
 import 'go_builder.dart';
 import 'logging.dart';
@@ -32,6 +29,18 @@ String _findProjectRoot() {
     dir = parent;
   }
   return Directory.current.path;
+}
+
+Future<String> _hostGoArch() async {
+  if (Platform.isWindows) {
+    final pa = Platform.environment['PROCESSOR_ARCHITECTURE'] ?? 'AMD64';
+    return pa.toUpperCase() == 'ARM64' ? 'arm64' : 'amd64';
+  }
+  final result = await Process.run('uname', ['-m']);
+  final machine = (result.stdout as String).trim();
+  if (machine == 'aarch64') return 'arm64';
+  if (machine == 'x86_64') return 'amd64';
+  return machine;
 }
 
 abstract class BuildCommand extends Command {
@@ -79,7 +88,7 @@ class BuildLinuxCommand extends BuildCommand {
     argParser.addOption(
       'arch',
       valueHelp: 'arm64,amd64',
-      help: 'Target architecture',
+      help: 'Target architecture (default: auto-detect)',
     );
   }
 
@@ -94,13 +103,13 @@ class BuildLinuxCommand extends BuildCommand {
     final archName = argResults?['arch'] as String?;
     final config = BuildConfig.load(rootDir: _rootDir);
 
-    final arch = archName ?? 'amd64';
+    final arch = archName ?? await _hostGoArch();
     final targets = Target.forPlatform('linux')
         .where((t) => t.goarch == arch)
         .toList();
 
     if (targets.isEmpty) {
-      throw BuildException('Invalid arch: $archName. Must be arm64 or amd64');
+      throw BuildException('Invalid arch: $arch');
     }
 
     final builder = GoBuilder(rootDir: _rootDir, config: config);
@@ -115,7 +124,11 @@ class BuildWindowsCommand extends BuildCommand {
     argParser.addOption(
       'arch',
       valueHelp: 'amd64,arm64',
-      help: 'Target architecture',
+      help: 'Target architecture (default: auto-detect)',
+    );
+    argParser.addFlag(
+      'dev',
+      help: 'Dev mode: skip SHA256, build helper in debug mode (for flutter run)',
     );
   }
 
@@ -128,27 +141,32 @@ class BuildWindowsCommand extends BuildCommand {
   @override
   Future<void> runBuildCommand() async {
     final archName = argResults?['arch'] as String?;
+    final dev = argResults?['dev'] as bool? ?? false;
     final config = BuildConfig.load(rootDir: _rootDir);
 
-    final arch = archName ?? 'amd64';
+    final arch = archName ?? await _hostGoArch();
     final targets = Target.forPlatform('windows')
         .where((t) => t.goarch == arch)
         .toList();
 
     if (targets.isEmpty) {
-      throw BuildException('Invalid arch: $archName');
+      throw BuildException('Invalid arch: $arch');
     }
 
     final goBuilder = GoBuilder(rootDir: _rootDir, config: config);
     final corePaths = await goBuilder.buildAll(targets);
 
-    final coreSha256 = await calcSha256(corePaths.first);
+    if (dev) {
+      final rustBuilder = RustBuilder(rootDir: _rootDir, config: config);
+      await rustBuilder.build(targets.first, '', release: false);
+    } else {
+      final coreSha256 = await calcSha256(corePaths.first);
+      final rustBuilder = RustBuilder(rootDir: _rootDir, config: config);
+      await rustBuilder.build(targets.first, coreSha256);
+      await File(p.join(_rootDir, 'core_sha256.json'))
+          .writeAsString(jsonEncode({'CORE_SHA256': coreSha256}));
+    }
 
-    final rustBuilder = RustBuilder(rootDir: _rootDir, config: config);
-    await rustBuilder.build(targets.first, coreSha256);
-
-    await File(p.join(_rootDir, 'core_sha256.json'))
-        .writeAsString(jsonEncode({'CORE_SHA256': coreSha256}));
     _log.info('Build complete: $corePaths');
   }
 }
@@ -158,7 +176,7 @@ class BuildMacosCommand extends BuildCommand {
     argParser.addOption(
       'arch',
       valueHelp: 'arm64,amd64',
-      help: 'Target architecture',
+      help: 'Target architecture (default: auto-detect)',
     );
   }
 
@@ -173,58 +191,19 @@ class BuildMacosCommand extends BuildCommand {
     final archName = argResults?['arch'] as String?;
     final config = BuildConfig.load(rootDir: _rootDir);
 
-    final arch = archName ?? 'arm64';
+    final arch = archName ?? await _hostGoArch();
     final targets = Target.forPlatform('darwin')
         .where((t) => t.goarch == arch)
         .toList();
 
     if (targets.isEmpty) {
-      throw BuildException('Invalid arch: $archName. Must be arm64 or amd64');
+      throw BuildException('Invalid arch: $arch');
     }
 
     final builder = GoBuilder(rootDir: _rootDir, config: config);
     final corePaths = await builder.buildAll(targets);
 
     _log.info('Build complete: $corePaths');
-  }
-}
-
-class BuildPodCommand extends BuildCommand {
-  @override
-  final name = 'pod';
-
-  @override
-  final description = 'Build Go core for iOS/macOS pod (auto-invoked by CocoaPods)';
-
-  @override
-  Future<void> runBuildCommand() async {
-    await buildPod(rootDir: _rootDir);
-  }
-}
-
-class BuildGradleCommand extends BuildCommand {
-  @override
-  final name = 'gradle';
-
-  @override
-  final description = 'Build Go core for Android (auto-invoked by Gradle)';
-
-  @override
-  Future<void> runBuildCommand() async {
-    await buildGradle(rootDir: _rootDir);
-  }
-}
-
-class BuildCmakeCommand extends BuildCommand {
-  @override
-  final name = 'cmake';
-
-  @override
-  final description = 'Build Go core for Linux/Windows (auto-invoked by CMake)';
-
-  @override
-  Future<void> runBuildCommand() async {
-    await buildCmake(rootDir: _rootDir);
   }
 }
 
@@ -241,10 +220,7 @@ Future<void> runMain(List<String> args) async {
       ..addCommand(BuildAndroidCommand())
       ..addCommand(BuildLinuxCommand())
       ..addCommand(BuildWindowsCommand())
-      ..addCommand(BuildMacosCommand())
-      ..addCommand(BuildPodCommand())
-      ..addCommand(BuildGradleCommand())
-      ..addCommand(BuildCmakeCommand());
+      ..addCommand(BuildMacosCommand());
 
     final topResults = runner.parse(args);
     _rootDir = (topResults['root-dir'] as String?) ?? _findProjectRoot();

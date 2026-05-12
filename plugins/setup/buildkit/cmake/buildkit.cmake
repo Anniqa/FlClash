@@ -3,7 +3,7 @@
 # Include this from a plugin's CMakeLists.txt and call:
 #   apply_buildkit()
 #
-# This adds a custom command that runs build_tool cmake before the native target is linked.
+# This adds a custom command that runs build_tool before the native target is linked.
 
 function(apply_buildkit)
   # Locate the run_build_tool script relative to this cmake file
@@ -22,13 +22,18 @@ function(apply_buildkit)
   # The output files the build_tool produces
   if(WIN32)
     set(_output "${PROJECT_ROOT}/libclash/windows/FlClashCore.exe")
+    set(_platform_args "windows")
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+      list(APPEND _platform_args "--dev")
+    endif()
   else()
     set(_output "${PROJECT_ROOT}/libclash/linux/FlClashCore")
+    set(_platform_args "linux")
   endif()
 
   add_custom_command(
     OUTPUT ${_output}
-    COMMAND "${_launcher}" cmake
+    COMMAND "${_launcher}" ${_platform_args}
     WORKING_DIRECTORY "${PROJECT_ROOT}"
     COMMENT "Building Go core via buildkit..."
     VERBATIM
