@@ -157,16 +157,26 @@ Shared: `ConnectivityManager`, `CoreManager`, `AppStateManager`, `StatusManager`
 
 ### Build System
 
-`setup.dart` (project root) is a thin packaging orchestrator: writes `env.json` (APP_ENV), activates `flutter_distributor`,
-then runs it with platform-specific args. It does NOT build Go core directly.
+`setup.dart` (project root) is the release build orchestrator:
 
-Go core building is handled by `build_tool`, a standalone Dart CLI in `plugins/setup/buildkit/build_tool/`. It is invoked
-per-platform:
+1. On Windows, pre-builds Go core via `dart run build_tool windows` and reads `core_sha256.json`
+2. Writes `env.json` (APP_ENV)
+3. Passes SHA256 as `--dart-define=CORE_SHA256=$val` (compile-time embedded, secure; Windows only)
+4. Activates `flutter_distributor` for packaging
 
-- **macOS:** automatically during `flutter build` via setup plugin's CocoaPods podspec script phase (`build_pod.sh` →
-  `run_build_tool.sh pod`)
-- **Linux/Windows:** automatically during `flutter build` via setup plugin's CMake include (`buildkit/cmake/buildkit.cmake`)
-- **Android:** automatically during `flutter build` via setup plugin's Gradle include (`buildkit/gradle/plugin.gradle`)
+Go core building is handled by `build_tool`, a standalone Dart CLI in `plugins/setup/buildkit/build_tool/`.
+Platform build hooks inside `flutter build` trigger `build_tool` automatically:
+
+- **macOS:** podspec script phase → `build_pod.sh` → `build_tool macos`
+- **Linux:** CMake include → `buildkit/cmake/buildkit.cmake` → `build_tool linux`
+- **Windows:** CMake include → `buildkit/cmake/buildkit.cmake` → `build_tool windows` (debug: `--dev` via `CMAKE_BUILD_TYPE`)
+- **Android:** Gradle include → `buildkit/gradle/plugin.gradle` → `build_tool android`
+
+**Windows helper auth (release):** Core SHA256 is embedded in both the Flutter app (`--dart-define`) and the Rust
+helper (`TOKEN` env var during cargo build). The Dart app pings the helper and verifies the token matches.
+
+**Windows helper auth (debug):** The Rust helper skips token verification when built in debug mode
+(`cfg!(debug_assertions)`), so `flutter run` works without any SHA256 dance.
 
 `plugins/setup/` is an FFI plugin that exists solely as a build harness — it carries no Dart API, only platform build hooks
 (podspec, CMake, Gradle) that trigger Go compilation. Windows builds also compile a Rust helper (`services/helper/`) via

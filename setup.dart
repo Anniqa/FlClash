@@ -101,23 +101,23 @@ Future<int> _package(
     return activateResult.exitCode;
   }
 
-  // Write env.json for Flutter --dart-define-from-file
-  // The Dart app reads APP_ENV from here. On Windows, build_tool writes
-  // core_sha256.json separately (CORE_SHA256 is computed during the build).
+  // Auto-detect host arch (used for deps, description, etc.)
+  final arch = _detectArch();
+
+  final coreSha256 = platform == 'windows' ? await _buildGoCore(rootDir) : null;
+
+  // Write env.json for Flutter --dart-define-from-file (APP_ENV)
   await File(
     p.join(rootDir, 'env.json'),
   ).writeAsString(jsonEncode({'APP_ENV': env}));
 
   final flutterBuildArgs = ['dart-define-from-file=env.json'];
-  if (platform == 'windows') {
-    flutterBuildArgs.add('dart-define-from-file=core_sha256.json');
+  if (coreSha256 != null) {
+    flutterBuildArgs.add('dart-define=CORE_SHA256=$coreSha256');
   }
   if (platform == 'android') {
     flutterBuildArgs.add('split-per-abi');
   }
-
-  // Auto-detect host arch (used for deps, description, etc.)
-  final arch = _detectArch();
   final descriptionArgs = <String>[];
   if (platform != 'android') {
     descriptionArgs.addAll(['--description', arch]);
@@ -143,6 +143,20 @@ Future<int> _package(
   final exitCode = await process.exitCode;
   await Future.wait([stdoutDone, stderrDone]);
   return exitCode;
+}
+
+Future<String?> _buildGoCore(String rootDir) async {
+  final buildToolDir = p.join(rootDir, 'plugins', 'setup', 'buildkit', 'build_tool');
+  final result = await Process.run('dart', ['run', 'build_tool', 'windows'],
+      workingDirectory: buildToolDir);
+  if (result.exitCode != 0) {
+    stderr.write(result.stderr);
+    return null;
+  }
+  final shaFile = File(p.join(rootDir, 'core_sha256.json'));
+  if (!shaFile.existsSync()) return null;
+  final content = jsonDecode(shaFile.readAsStringSync()) as Map<String, dynamic>;
+  return content['CORE_SHA256'] as String?;
 }
 
 String _detectArch() {
