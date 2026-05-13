@@ -281,7 +281,8 @@ class VpnService : SystemVpnService(), IBaseService,
             State.options?.let {
                 handleStart(it)
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            State.emitLog("VPN service start failed: ${e.message ?: e.javaClass.simpleName}", "error")
             stop()
         }
     }

@@ -148,6 +148,7 @@ class RemoteService : Service(),
 
         override fun setEventListener(eventListener: IEventInterface?) {
             GlobalState.log("RemoveEventListener ${eventListener == null}")
+            State.eventListener = eventListener
             when (eventListener != null) {
                 true -> Core.callSetEventListener {
                     launch {

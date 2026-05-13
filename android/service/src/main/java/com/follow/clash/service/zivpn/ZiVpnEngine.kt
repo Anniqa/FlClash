@@ -4,7 +4,7 @@ import android.content.Context
 import android.net.LocalSocket
 import android.net.LocalSocketAddress
 import android.os.ParcelFileDescriptor
-import com.follow.clash.common.GlobalState
+import com.follow.clash.service.State
 import com.follow.clash.service.models.VpnOptions
 import java.io.File
 import java.net.InetSocketAddress
@@ -30,18 +30,21 @@ class ZiVpnEngine(private val context: Context) {
         val coreCount = options.zivpnCoreCount.coerceIn(1, 8)
         val udpgwPort = options.zivpnUdpGwPort.coerceIn(1, 65535)
 
+        log("ZiVPN start: server=$server range=$portRange cores=$coreCount udpgw=${options.zivpnEnableUdpGw} udpgwPort=$udpgwPort")
         val nativeDir = context.applicationInfo.nativeLibraryDir
         startZiVpnCores(nativeDir, server, portRange, password, obfs, coreCount)
         startPdnsd()
         startTun2Socks(nativeDir, mtu, options.zivpnEnableUdpGw, udpgwPort)
 
         if (!sendTunFdWithRetry(fd)) {
+            error("ZiVPN TUN fd handoff failed after retries")
             throw IllegalStateException("Failed to hand TUN fd to ZiVPN tun2socks")
         }
-        GlobalState.log("ZiVPN backend running via SOCKS5 127.0.0.1:$LOCAL_SOCKS_PORT")
+        log("ZiVPN backend running via SOCKS5 127.0.0.1:$LOCAL_SOCKS_PORT")
     }
 
     fun stop() {
+        log("ZiVPN stop requested")
         stopping = true
         processes.reversed().forEach { process ->
             runCatching { process.destroy() }
@@ -50,6 +53,7 @@ class ZiVpnEngine(private val context: Context) {
         processes.clear()
         runCatching { tunFd?.close() }
         tunFd = null
+        log("ZiVPN stopped")
     }
 
     private fun validateOptions(options: VpnOptions) {
@@ -76,20 +80,26 @@ class ZiVpnEngine(private val context: Context) {
             val port = FIRST_CORE_PORT + index
             val config = buildCoreConfig(server, portRange, password, obfs, port)
             val command = listOf(libUz.absolutePath, "-s", obfs, "--config", config.absolutePath)
+            log("Starting ZiVPN core #${index + 1}/$coreCount on SOCKS5 127.0.0.1:$port")
             val process = startProcess("ZiVPN-Core-$port", command, nativeDir)
             targets.add("127.0.0.1:$port")
             if (!waitForLocalPort(port, CORE_READY_TIMEOUT_MS)) {
+                error("ZiVPN core on port $port did not become ready")
                 throw IllegalStateException("ZiVPN core on port $port did not become ready")
             }
+            log("ZiVPN core ready on 127.0.0.1:$port")
             monitor(process, "ZiVPN-Core-$port")
         }
 
         val lbCommand = mutableListOf(libLoad.absolutePath, "-lport", LOCAL_SOCKS_PORT.toString(), "-tunnel")
         lbCommand.addAll(targets)
+        log("Starting ZiVPN load balancer on 127.0.0.1:$LOCAL_SOCKS_PORT -> ${targets.joinToString()}")
         val lbProcess = startProcess("ZiVPN-LoadBalancer", lbCommand, nativeDir)
         if (!waitForLocalPort(LOCAL_SOCKS_PORT, LOAD_BALANCER_READY_TIMEOUT_MS)) {
+            error("ZiVPN load balancer did not open 127.0.0.1:$LOCAL_SOCKS_PORT")
             throw IllegalStateException("ZiVPN load balancer did not open 127.0.0.1:$LOCAL_SOCKS_PORT")
         }
+        log("ZiVPN load balancer ready on 127.0.0.1:$LOCAL_SOCKS_PORT")
         monitor(lbProcess, "ZiVPN-LoadBalancer")
     }
 
@@ -120,6 +130,7 @@ class ZiVpnEngine(private val context: Context) {
     private fun startPdnsd() {
         val pdnsdBin = requireExecutable(File(Pdnsd.getExecutable(context)), "pdnsd")
         val pdnsdConf = Pdnsd.writeConfig(context, listenPort = PDNSD_PORT)
+        log("Starting ZiVPN DNS gateway pdnsd on 127.0.0.1:$PDNSD_PORT")
         val process = ProcessBuilder(listOf(pdnsdBin.absolutePath, "-g", "-c", pdnsdConf))
             .directory(context.filesDir)
             .redirectErrorStream(true)
@@ -127,6 +138,7 @@ class ZiVpnEngine(private val context: Context) {
         processes.add(process)
         captureLog(process, "ZiVPN-Pdnsd")
         monitor(process, "ZiVPN-Pdnsd")
+        log("ZiVPN DNS gateway launched")
     }
 
     private fun startTun2Socks(nativeDir: String, mtu: Int, enableUdpGw: Boolean, udpgwPort: Int) {
@@ -145,6 +157,7 @@ class ZiVpnEngine(private val context: Context) {
             "--socks-buf", "262144",
         )
         if (enableUdpGw) {
+            log("ZiVPN UDPGW enabled: 127.0.0.1:$udpgwPort")
             command.add("--udpgw-remote-server-addr")
             command.add("127.0.0.1:$udpgwPort")
             command.add("--udpgw-max-connections")
@@ -152,7 +165,10 @@ class ZiVpnEngine(private val context: Context) {
             command.add("--udpgw-connection-buffer-size")
             command.add("32")
             command.add("--udpgw-transparent-dns")
+        } else {
+            log("ZiVPN UDPGW disabled")
         }
+        log("Starting ZiVPN tun2socks: mtu=$mtu socks=127.0.0.1:$LOCAL_SOCKS_PORT dns=169.254.1.1:$PDNSD_PORT")
         val process = startProcess("ZiVPN-Tun2Socks", command, nativeDir)
         monitor(process, "ZiVPN-Tun2Socks")
     }
@@ -160,8 +176,11 @@ class ZiVpnEngine(private val context: Context) {
     private fun sendTunFdWithRetry(fd: ParcelFileDescriptor): Boolean {
         repeat(5) { attempt ->
             Thread.sleep(if (attempt == 0) 1000 else 300)
-            if (sendTunFd(fd)) return true
-            GlobalState.log("ZiVPN TUN fd handoff retry ${attempt + 1}/5 failed")
+            if (sendTunFd(fd)) {
+                log("ZiVPN TUN fd handoff success")
+                return true
+            }
+            warn("ZiVPN TUN fd handoff retry ${attempt + 1}/5 failed")
         }
         return false
     }
@@ -191,7 +210,7 @@ class ZiVpnEngine(private val context: Context) {
             .start()
         processes.add(process)
         captureLog(process, name)
-        GlobalState.log("$name started")
+        log("$name started")
         return process
     }
 
@@ -200,7 +219,7 @@ class ZiVpnEngine(private val context: Context) {
             runCatching {
                 process.inputStream.bufferedReader().useLines { lines ->
                     lines.take(120).forEach { line ->
-                        if (line.isNotBlank()) GlobalState.log("$name: $line")
+                        if (line.isNotBlank()) log("$name: $line")
                     }
                 }
             }
@@ -210,8 +229,23 @@ class ZiVpnEngine(private val context: Context) {
     private fun monitor(process: Process, name: String) {
         Thread {
             val exit = runCatching { process.waitFor() }.getOrDefault(-1)
-            if (!stopping) GlobalState.log("$name exited: $exit")
+            if (!stopping) {
+                val level = if (exit == 0) "info" else "warning"
+                State.emitLog("$name exited: $exit", level)
+            }
         }.apply { isDaemon = true }.start()
+    }
+
+    private fun log(message: String) {
+        State.emitLog(message, "info")
+    }
+
+    private fun warn(message: String) {
+        State.emitLog(message, "warning")
+    }
+
+    private fun error(message: String) {
+        State.emitLog(message, "error")
     }
 
     private fun waitForLocalPort(port: Int, timeoutMs: Long): Boolean {
