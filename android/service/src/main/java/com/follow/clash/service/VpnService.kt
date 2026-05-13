@@ -257,12 +257,19 @@ class VpnService : SystemVpnService(), IBaseService,
                 if (accessControl.enable) {
                     when (accessControl.mode) {
                         AccessControlMode.ACCEPT_SELECTED -> {
-                            (accessControl.acceptList + packageName).forEach { addAllowedApplication(it) }
+                            // ZiVPN native cores run under the app UID. Do not include the
+                            // FlClash package in the allowed list, otherwise libuz/libload
+                            // can route into its own TUN and fail to reach the server.
+                            (accessControl.acceptList - packageName).forEach { addAllowedApplication(it) }
                         }
                         AccessControlMode.REJECT_SELECTED -> {
-                            (accessControl.rejectList - packageName).forEach { addDisallowedApplication(it) }
+                            (accessControl.rejectList + packageName).forEach { addDisallowedApplication(it) }
                         }
                     }
+                } else {
+                    // Match MiniZiVPN: keep the app/native backend outside the VPN tunnel
+                    // so the SOCKS core can connect to the remote ZiVPN server directly.
+                    addDisallowedApplication(packageName)
                 }
             }
             setSession("FlClash ZiVPN")
@@ -272,6 +279,7 @@ class VpnService : SystemVpnService(), IBaseService,
             if (options.allowBypass) allowBypass()
             establish() ?: throw NullPointerException("Establish ZiVPN rejected by system")
         }
+        State.emitLog("ZiVPN VPN interface established; app package excluded from tunnel")
         ziVpnEngine.start(pfd, 1500, options)
     }
 
