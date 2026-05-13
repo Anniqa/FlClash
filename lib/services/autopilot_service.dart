@@ -21,6 +21,11 @@ class AutoPilotService extends ChangeNotifier {
     ],
     ['svc data {svcAction}'],
   ];
+  static const _fallbackHealthTargets = [
+    'http://connectivitycheck.gstatic.com/generate_204',
+    'https://www.gstatic.com/generate_204',
+    'https://cloudflare.com/cdn-cgi/trace',
+  ];
 
   static final AutoPilotService _instance = AutoPilotService._internal();
 
@@ -37,6 +42,8 @@ class AutoPilotService extends ChangeNotifier {
   final List<String> _logs = [];
 
   Timer? _timer;
+  DateTime? _lastRecoveryAt;
+  DateTime? _graceUntil;
   bool _isInitialized = false;
   bool _isChecking = false;
   bool _hasShizukuAccess = false;
@@ -84,6 +91,10 @@ class AutoPilotService extends ChangeNotifier {
           prefs.getInt('${_prefsPrefix}airplaneModeDelaySeconds') ?? 3,
       recoveryWaitSeconds:
           prefs.getInt('${_prefsPrefix}recoveryWaitSeconds') ?? 10,
+      recoveryCooldownSeconds:
+          prefs.getInt('${_prefsPrefix}recoveryCooldownSeconds') ?? 180,
+      vpnGracePeriodSeconds:
+          prefs.getInt('${_prefsPrefix}vpnGracePeriodSeconds') ?? 20,
       maxConsecutiveResets:
           prefs.getInt('${_prefsPrefix}maxConsecutiveResets') ?? 5,
       pingDestination: _normalizePingDestination(
@@ -119,6 +130,14 @@ class AutoPilotService extends ChangeNotifier {
       _config.recoveryWaitSeconds,
     );
     await prefs.setInt(
+      '${_prefsPrefix}recoveryCooldownSeconds',
+      _config.recoveryCooldownSeconds,
+    );
+    await prefs.setInt(
+      '${_prefsPrefix}vpnGracePeriodSeconds',
+      _config.vpnGracePeriodSeconds,
+    );
+    await prefs.setInt(
       '${_prefsPrefix}maxConsecutiveResets',
       _config.maxConsecutiveResets,
     );
@@ -146,14 +165,17 @@ class AutoPilotService extends ChangeNotifier {
       (_) => _checkAndRecover(),
     );
     isRunning = true;
+    _graceUntil = DateTime.now().add(
+      Duration(seconds: _config.vpnGracePeriodSeconds),
+    );
     _updateState(
       _currentState.copyWith(
         status: AutoPilotStatus.running,
         failCount: 0,
         hasShizukuAccess: _hasShizukuAccess,
         message: _hasShizukuAccess
-            ? 'AutoPilot aktif: Shizuku recovery siap'
-            : 'AutoPilot aktif: monitor only, Shizuku belum aktif',
+            ? 'AutoPilot v2 aktif: smart recovery siap'
+            : 'AutoPilot v2 aktif: monitor only, Shizuku belum aktif',
       ),
     );
     unawaited(_checkAndRecover());
@@ -165,6 +187,7 @@ class AutoPilotService extends ChangeNotifier {
     _timer = null;
     isRunning = false;
     _watchdogRefreshCounter = 0;
+    _graceUntil = null;
     _updateState(
       _currentState.copyWith(
         status: AutoPilotStatus.stopped,
@@ -190,15 +213,27 @@ class AutoPilotService extends ChangeNotifier {
     _isChecking = true;
     try {
       await _refreshShizukuWatchdogPriorityIfNeeded();
+      if (_isInGracePeriod) {
+        final seconds = _graceUntil!.difference(DateTime.now()).inSeconds;
+        _updateState(
+          _currentState.copyWith(
+            status: AutoPilotStatus.running,
+            message: 'Grace period setelah start/recovery (${seconds}s)',
+          ),
+        );
+        return;
+      }
+
       _updateState(
         _currentState.copyWith(
           status: AutoPilotStatus.checking,
-          message: 'Mengecek koneksi...',
+          message: 'Mengecek koneksi multi-target...',
         ),
       );
-      final hasInternet = await _hasInternetConnection();
+
+      final health = await _runHealthCheck();
       final lastCheck = DateTime.now();
-      if (hasInternet) {
+      if (health.hasInternet) {
         _consecutiveResets = 0;
         _updateState(
           _currentState.copyWith(
@@ -206,11 +241,14 @@ class AutoPilotService extends ChangeNotifier {
             failCount: 0,
             lastCheck: lastCheck,
             hasInternet: true,
-            message: 'Internet stabil',
+            hasShizukuAccess: _hasShizukuAccess,
+            message:
+                'Internet stabil (${health.successCount}/${health.total} target)',
           ),
         );
         return;
       }
+
       final newFailCount = _currentState.failCount + 1;
       _updateState(
         _currentState.copyWith(
@@ -218,11 +256,12 @@ class AutoPilotService extends ChangeNotifier {
           failCount: newFailCount,
           lastCheck: lastCheck,
           hasInternet: false,
-          message: 'Internet putus ($newFailCount/${_config.maxFailCount})',
+          hasShizukuAccess: _hasShizukuAccess,
+          message: '${health.summary} ($newFailCount/${_config.maxFailCount})',
         ),
       );
       if (newFailCount >= _config.maxFailCount) {
-        await _performRecovery();
+        await _performSmartRecovery(health);
       }
     } catch (e) {
       _updateState(
@@ -236,13 +275,41 @@ class AutoPilotService extends ChangeNotifier {
     }
   }
 
-  Future<bool> _hasInternetConnection() async {
+  bool get _isInGracePeriod {
+    final graceUntil = _graceUntil;
+    if (graceUntil == null) return false;
+    if (DateTime.now().isBefore(graceUntil)) return true;
+    _graceUntil = null;
+    return false;
+  }
+
+  Future<_HealthCheckResult> _runHealthCheck() async {
+    final targets = <String>[];
+    for (final target in [_config.pingDestination, ..._fallbackHealthTargets]) {
+      final normalized = _normalizePingDestination(target);
+      if (!targets.contains(normalized)) targets.add(normalized);
+    }
+
+    final probes = await Future.wait(targets.map(_probeUrl));
+    for (final result in probes) {
+      if (result.ok) {
+        _addLog(
+          'HEALTH OK ${result.statusCode} ${result.elapsedMs}ms ${result.target}',
+        );
+      } else {
+        _addLog('HEALTH FAIL ${result.failureKind.label}: ${result.target}');
+      }
+    }
+    return _HealthCheckResult(probes);
+  }
+
+  Future<_ProbeResult> _probeUrl(String target) async {
     final client = HttpClient()
       ..connectionTimeout = Duration(seconds: _config.connectionTimeoutSeconds);
+    final start = DateTime.now();
     try {
-      final start = DateTime.now();
       final request = await client
-          .getUrl(Uri.parse(_config.pingDestination))
+          .getUrl(Uri.parse(target))
           .timeout(Duration(seconds: _config.connectionTimeoutSeconds));
       final response = await request.close().timeout(
         Duration(seconds: _config.connectionTimeoutSeconds),
@@ -252,64 +319,118 @@ class AutoPilotService extends ChangeNotifier {
       final ok =
           response.statusCode == 204 ||
           (response.statusCode >= 200 && response.statusCode < 400);
-      _addLog('PING ${response.statusCode} ${elapsed}ms');
-      return ok;
+      return _ProbeResult(
+        target: target,
+        ok: ok,
+        statusCode: response.statusCode,
+        elapsedMs: elapsed,
+        failureKind: ok ? _FailureKind.none : _FailureKind.http,
+      );
+    } on TimeoutException catch (e) {
+      return _ProbeResult.failed(target, _FailureKind.timeout, e);
+    } on SocketException catch (e) {
+      final kind = e.message.toLowerCase().contains('host')
+          ? _FailureKind.dns
+          : _FailureKind.socket;
+      return _ProbeResult.failed(target, kind, e);
     } catch (e) {
-      _addLog('PING gagal: ${e.toString().split('\n').first}');
-      return false;
+      return _ProbeResult.failed(target, _FailureKind.unknown, e);
     } finally {
       client.close(force: true);
     }
   }
 
-  Future<void> _performRecovery() async {
+  Future<void> _performSmartRecovery(_HealthCheckResult health) async {
     if (_consecutiveResets >= _config.maxConsecutiveResets) {
       _updateState(
         _currentState.copyWith(
           status: AutoPilotStatus.error,
-          message: 'Batas reset tercapai (${_config.maxConsecutiveResets})',
+          message: 'Batas recovery tercapai (${_config.maxConsecutiveResets})',
         ),
       );
       return;
     }
-    if (!_hasShizukuAccess) {
-      _hasShizukuAccess = await _ensureShizukuAccess();
-    }
-    if (!_hasShizukuAccess) {
+
+    final cooldownLeft = _cooldownLeftSeconds;
+    if (cooldownLeft > 0) {
       _updateState(
         _currentState.copyWith(
-          status: AutoPilotStatus.error,
-          hasShizukuAccess: false,
-          message: 'Recovery dilewati: Shizuku belum aktif/izin belum ada',
+          status: AutoPilotStatus.running,
+          message: 'Recovery cooldown ${cooldownLeft}s, skip dulu',
         ),
       );
       return;
     }
+
     _consecutiveResets++;
+    _lastRecoveryAt = DateTime.now();
     _updateState(
       _currentState.copyWith(
         status: AutoPilotStatus.recovering,
-        message: 'Recovery mode pesawat #$_consecutiveResets...',
+        message:
+            'Smart recovery #$_consecutiveResets: ${health.failureKind.label}',
       ),
     );
+
     try {
-      await _toggleAirplaneMode(true);
-      await Future.delayed(Duration(seconds: _config.airplaneModeDelaySeconds));
-      await _toggleAirplaneMode(false);
-      await Future.delayed(Duration(seconds: _config.recoveryWaitSeconds));
-      final recovered = await _hasInternetConnection();
-      if (recovered && _config.restartVpnAfterRecovery) {
+      var recovered = false;
+
+      if (appController.isAttach &&
+          appController.isStart &&
+          _config.restartVpnAfterRecovery) {
+        recovered = await _attemptRecoveryStep(
+          label: 'Level 1 restart VPN',
+          action: _restartVpn,
+        );
+      }
+
+      if (!recovered) {
+        _hasShizukuAccess = _hasShizukuAccess || await _ensureShizukuAccess();
+        if (!_hasShizukuAccess) {
+          _updateState(
+            _currentState.copyWith(
+              status: AutoPilotStatus.error,
+              hasShizukuAccess: false,
+              message: 'Recovery butuh Shizuku untuk level seluler',
+            ),
+          );
+          return;
+        }
+      }
+
+      if (!recovered) {
+        recovered = await _attemptRecoveryStep(
+          label: 'Level 2 reset mobile data',
+          action: _resetMobileData,
+        );
+      }
+
+      if (!recovered) {
+        recovered = await _attemptRecoveryStep(
+          label: 'Level 3 airplane cellular reset',
+          action: _resetAirplaneMode,
+        );
+      }
+
+      if (recovered &&
+          appController.isAttach &&
+          appController.isStart &&
+          _config.restartVpnAfterRecovery) {
         await _restartVpn();
       }
+
+      _graceUntil = DateTime.now().add(
+        Duration(seconds: _config.vpnGracePeriodSeconds),
+      );
       _updateState(
         _currentState.copyWith(
           status: AutoPilotStatus.running,
           failCount: recovered ? 0 : _currentState.failCount,
           hasInternet: recovered,
-          hasShizukuAccess: true,
+          hasShizukuAccess: _hasShizukuAccess,
           message: recovered
-              ? 'Recovery berhasil'
-              : 'Recovery selesai, koneksi belum stabil',
+              ? 'Smart recovery berhasil'
+              : 'Smart recovery selesai, koneksi belum stabil',
         ),
       );
     } catch (e) {
@@ -322,13 +443,59 @@ class AutoPilotService extends ChangeNotifier {
     }
   }
 
+  int get _cooldownLeftSeconds {
+    final lastRecoveryAt = _lastRecoveryAt;
+    if (lastRecoveryAt == null) return 0;
+    final elapsed = DateTime.now().difference(lastRecoveryAt).inSeconds;
+    final left = _config.recoveryCooldownSeconds - elapsed;
+    return left > 0 ? left : 0;
+  }
+
+  Future<bool> _attemptRecoveryStep({
+    required String label,
+    required Future<void> Function() action,
+  }) async {
+    _updateState(
+      _currentState.copyWith(
+        status: AutoPilotStatus.recovering,
+        message: label,
+      ),
+    );
+    _addLog(label);
+    await action();
+    await Future.delayed(Duration(seconds: _config.recoveryWaitSeconds));
+    final health = await _runHealthCheck();
+    final recovered = health.hasInternet;
+    _addLog('$label => ${recovered ? 'recovered' : health.summary}');
+    return recovered;
+  }
+
   Future<void> _restartVpn() async {
     if (!appController.isAttach) return;
     if (!appController.isStart) return;
-    _addLog('Restart VPN setelah recovery jaringan');
+    _addLog('Restart VPN FlClash');
     await appController.updateStatus(false);
     await Future.delayed(const Duration(seconds: 1));
     await appController.updateStatus(true);
+    _graceUntil = DateTime.now().add(
+      Duration(seconds: _config.vpnGracePeriodSeconds),
+    );
+  }
+
+  Future<void> _resetMobileData() async {
+    await _shizuku
+        .runCommand('svc data disable')
+        .timeout(_shizukuCommandTimeout);
+    await Future.delayed(const Duration(seconds: 2));
+    await _shizuku
+        .runCommand('svc data enable')
+        .timeout(_shizukuCommandTimeout);
+  }
+
+  Future<void> _resetAirplaneMode() async {
+    await _toggleAirplaneMode(true);
+    await Future.delayed(Duration(seconds: _config.airplaneModeDelaySeconds));
+    await _toggleAirplaneMode(false);
   }
 
   Future<void> _refreshShizukuWatchdogPriorityIfNeeded() async {
@@ -408,7 +575,7 @@ class AutoPilotService extends ChangeNotifier {
     final stamp =
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
     _logs.insert(0, '[$stamp] $message');
-    if (_logs.length > 80) _logs.removeLast();
+    if (_logs.length > 120) _logs.removeLast();
     commonPrint.log('[AutoPilot] $message');
   }
 
@@ -417,5 +584,84 @@ class AutoPilotService extends ChangeNotifier {
     stop();
     _stateController.close();
     super.dispose();
+  }
+}
+
+enum _FailureKind { none, http, timeout, dns, socket, unknown, vpnOrRoute }
+
+extension on _FailureKind {
+  String get label {
+    return switch (this) {
+      _FailureKind.none => 'OK',
+      _FailureKind.http => 'HTTP endpoint error',
+      _FailureKind.timeout => 'timeout',
+      _FailureKind.dns => 'DNS failure',
+      _FailureKind.socket => 'network socket failure',
+      _FailureKind.unknown => 'unknown failure',
+      _FailureKind.vpnOrRoute => 'VPN/route failure',
+    };
+  }
+}
+
+class _ProbeResult {
+  final String target;
+  final bool ok;
+  final int? statusCode;
+  final int? elapsedMs;
+  final _FailureKind failureKind;
+  final Object? error;
+
+  const _ProbeResult({
+    required this.target,
+    required this.ok,
+    required this.failureKind,
+    this.statusCode,
+    this.elapsedMs,
+    this.error,
+  });
+
+  factory _ProbeResult.failed(
+    String target,
+    _FailureKind failureKind,
+    Object error,
+  ) {
+    return _ProbeResult(
+      target: target,
+      ok: false,
+      failureKind: failureKind,
+      error: error,
+    );
+  }
+}
+
+class _HealthCheckResult {
+  final List<_ProbeResult> probes;
+
+  const _HealthCheckResult(this.probes);
+
+  int get total => probes.length;
+  int get successCount => probes.where((probe) => probe.ok).length;
+  bool get hasInternet => successCount > 0;
+
+  _FailureKind get failureKind {
+    if (hasInternet) return _FailureKind.none;
+    final kinds = probes.map((probe) => probe.failureKind).toList();
+    if (kinds.every((kind) => kind == _FailureKind.dns)) {
+      return _FailureKind.dns;
+    }
+    if (kinds.every((kind) => kind == _FailureKind.timeout)) {
+      return _FailureKind.timeout;
+    }
+    if (kinds.contains(_FailureKind.socket) ||
+        kinds.contains(_FailureKind.timeout)) {
+      return _FailureKind.vpnOrRoute;
+    }
+    if (kinds.contains(_FailureKind.http)) return _FailureKind.http;
+    return _FailureKind.unknown;
+  }
+
+  String get summary {
+    if (hasInternet) return 'Internet OK ($successCount/$total)';
+    return 'Internet gagal: ${failureKind.label}';
   }
 }

@@ -263,12 +263,31 @@ class _AutoPilotViewState extends State<AutoPilotView> {
             ),
             _numberSlider(
               title: 'Recovery wait',
-              subtitle: 'Waktu tunggu sinyal data latch lagi',
+              subtitle: 'Waktu tunggu setelah tiap level recovery',
               value: cfg.recoveryWaitSeconds,
               min: 5,
               max: 30,
               unit: 's',
               onChanged: (v) => _update(cfg.copyWith(recoveryWaitSeconds: v)),
+            ),
+            _numberSlider(
+              title: 'Recovery cooldown',
+              subtitle: 'Jeda aman sebelum recovery berat berikutnya',
+              value: cfg.recoveryCooldownSeconds,
+              min: 30,
+              max: 300,
+              unit: 's',
+              onChanged: (v) =>
+                  _update(cfg.copyWith(recoveryCooldownSeconds: v)),
+            ),
+            _numberSlider(
+              title: 'VPN grace period',
+              subtitle: 'Abaikan fail setelah start/restart VPN',
+              value: cfg.vpnGracePeriodSeconds,
+              min: 5,
+              max: 60,
+              unit: 's',
+              onChanged: (v) => _update(cfg.copyWith(vpnGracePeriodSeconds: v)),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -337,7 +356,7 @@ class _AutoPilotViewState extends State<AutoPilotView> {
               _buildLogs(),
               const SizedBox(height: 8),
               const Text(
-                'Catatan: fitur ini memakai Shizuku untuk menjalankan perintah sistem mode pesawat. Wi‑Fi/hotspot dijaga agar tidak ikut masuk airplane radios, mengikuti pola MiniZiVPN.',
+                'AutoPilot v2: multi-target health check → restart VPN → reset mobile data → airplane cellular reset. Wi‑Fi/hotspot dijaga agar tidak ikut masuk airplane radios.',
                 style: TextStyle(fontSize: 12),
               ),
             ],
