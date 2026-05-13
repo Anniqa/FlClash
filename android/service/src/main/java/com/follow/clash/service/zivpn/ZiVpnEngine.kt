@@ -1,5 +1,6 @@
 package com.follow.clash.service.zivpn
 
+import android.app.Service
 import android.content.Context
 import android.net.LocalSocket
 import android.net.LocalSocketAddress
@@ -88,7 +89,7 @@ class ZiVpnEngine(private val context: Context) {
                 throw IllegalStateException("ZiVPN core on port $port did not become ready")
             }
             log("ZiVPN core ready on 127.0.0.1:$port")
-            monitor(process, "ZiVPN-Core-$port")
+            monitor(process, "ZiVPN-Core-$port", critical = true)
         }
 
         val lbCommand = mutableListOf(libLoad.absolutePath, "-lport", LOCAL_SOCKS_PORT.toString(), "-tunnel")
@@ -100,7 +101,7 @@ class ZiVpnEngine(private val context: Context) {
             throw IllegalStateException("ZiVPN load balancer did not open 127.0.0.1:$LOCAL_SOCKS_PORT")
         }
         log("ZiVPN load balancer ready on 127.0.0.1:$LOCAL_SOCKS_PORT")
-        monitor(lbProcess, "ZiVPN-LoadBalancer")
+        monitor(lbProcess, "ZiVPN-LoadBalancer", critical = true)
     }
 
     private fun buildCoreConfig(
@@ -137,7 +138,7 @@ class ZiVpnEngine(private val context: Context) {
             .start()
         processes.add(process)
         captureLog(process, "ZiVPN-Pdnsd")
-        monitor(process, "ZiVPN-Pdnsd")
+        monitor(process, "ZiVPN-Pdnsd", critical = true)
         log("ZiVPN DNS gateway launched")
     }
 
@@ -170,7 +171,7 @@ class ZiVpnEngine(private val context: Context) {
         }
         log("Starting ZiVPN tun2socks: mtu=$mtu socks=127.0.0.1:$LOCAL_SOCKS_PORT dns=169.254.1.1:$PDNSD_PORT")
         val process = startProcess("ZiVPN-Tun2Socks", command, nativeDir)
-        monitor(process, "ZiVPN-Tun2Socks")
+        monitor(process, "ZiVPN-Tun2Socks", critical = true)
     }
 
     private fun sendTunFdWithRetry(fd: ParcelFileDescriptor): Boolean {
@@ -226,12 +227,17 @@ class ZiVpnEngine(private val context: Context) {
         }.apply { isDaemon = true }.start()
     }
 
-    private fun monitor(process: Process, name: String) {
+    private fun monitor(process: Process, name: String, critical: Boolean = false) {
         Thread {
             val exit = runCatching { process.waitFor() }.getOrDefault(-1)
             if (!stopping) {
                 val level = if (exit == 0) "info" else "warning"
                 State.emitLog("$name exited: $exit", level)
+                if (critical) {
+                    error("$name is critical; stopping ZiVPN service")
+                    stop()
+                    (context as? Service)?.stopSelf()
+                }
             }
         }.apply { isDaemon = true }.start()
     }
