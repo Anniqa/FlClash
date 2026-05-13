@@ -1,0 +1,95 @@
+name: custom-android-build
+
+on:
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: "Android ABI to build"
+        type: choice
+        default: arm64
+        options:
+          - arm64
+          - arm
+          - amd64
+          - all
+      env:
+        description: "FlClash app env"
+        type: choice
+        default: pre
+        options:
+          - pre
+          - stable
+
+jobs:
+  android:
+    name: Android APK (${{ inputs.arch }})
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Force HTTPS for submodules/git deps
+        run: |
+          git config --global url."https://github.com/".insteadOf git@github.com:
+          git submodule sync --recursive
+          git submodule update --init --recursive --depth=1
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK/NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: |
+          sdkmanager --install "ndk;28.0.13004108"
+          echo "ANDROID_NDK=$ANDROID_HOME/ndk/28.0.13004108" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.0.13004108" >> "$GITHUB_ENV"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.0"
+          cache-dependency-path: core/go.sum
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.35.7
+          cache: true
+
+      - name: Prepare Flutter dependencies
+        run: |
+          flutter --version
+          flutter pub get
+
+      - name: Build Android APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARCH="${{ inputs.arch }}"
+          EXTRA=""
+          if [ "$ARCH" != "all" ]; then
+            EXTRA="--arch $ARCH"
+          fi
+          dart setup.dart android $EXTRA --env "${{ inputs.env }}"
+
+      - name: List dist
+        if: always()
+        run: |
+          find dist -maxdepth 3 -type f -printf "%s %p\n" | sort -nr || true
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: flclash-custom-android-${{ inputs.arch }}-${{ github.run_number }}
+          path: dist/**/*
+          if-no-files-found: error
