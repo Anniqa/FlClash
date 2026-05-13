@@ -122,24 +122,29 @@ class _AutoPilotViewState extends State<AutoPilotView> {
     final color = _statusColor(state.status);
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         child: Column(
           children: [
-            Icon(_statusIcon(state.status), color: color, size: 48),
+            Icon(_statusIcon(state.status), color: color, size: 54),
             const SizedBox(height: 8),
             Text(
-              state.status.name.toUpperCase(),
+              _isRunning(state.status) ? 'AUTOPILOT ON' : 'AUTOPILOT OFF',
               style: TextStyle(
                 color: color,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
               ),
             ),
+            const SizedBox(height: 4),
+            Text(
+              state.status.name.toUpperCase(),
+              style: TextStyle(color: color, fontWeight: FontWeight.w700),
+            ),
             if (state.message != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(state.message!, textAlign: TextAlign.center),
             ],
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Wrap(
               alignment: WrapAlignment.center,
               spacing: 8,
@@ -151,7 +156,7 @@ class _AutoPilotViewState extends State<AutoPilotView> {
                     size: 18,
                   ),
                   label: Text(
-                    state.hasShizukuAccess ? 'Shizuku ready' : 'Monitor only',
+                    state.hasShizukuAccess ? 'Shizuku ready' : 'Need Shizuku',
                   ),
                 ),
                 Chip(
@@ -161,11 +166,7 @@ class _AutoPilotViewState extends State<AutoPilotView> {
                   ),
                   label: Text(state.hasInternet ? 'Online' : 'Offline'),
                 ),
-                Chip(
-                  label: Text(
-                    'Fail ${state.failCount}/${_service.config.maxFailCount}',
-                  ),
-                ),
+                const Chip(label: Text('Simple Mode')),
               ],
             ),
           ],
@@ -185,7 +186,13 @@ class _AutoPilotViewState extends State<AutoPilotView> {
             FilledButton.icon(
               onPressed: _busy ? null : () => _toggle(state.status),
               icon: Icon(running ? Icons.stop : Icons.play_arrow),
-              label: Text(running ? 'Stop AutoPilot' : 'Start AutoPilot'),
+              label: Text(running ? 'MATIKAN AUTOPILOT' : 'NYALAKAN AUTOPILOT'),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Simple Mode: kalau ping paralel gagal, AutoPilot langsung reset mode pesawat. Setelah sinyal balik, recovery diverifikasi dengan test download.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13),
             ),
             TextButton.icon(
               onPressed: _openShizuku,
@@ -198,109 +205,80 @@ class _AutoPilotViewState extends State<AutoPilotView> {
     );
   }
 
-  Widget _buildSettings() {
+  Widget _buildAdvancedSettings() {
     final cfg = _service.config;
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Monitoring',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+      child: ExpansionTile(
+        leading: const Icon(Icons.tune),
+        title: const Text('Advanced'),
+        subtitle: const Text('Opsional, user awam boleh abaikan'),
+        childrenPadding: const EdgeInsets.all(16).copyWith(top: 0),
+        children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Simple Mode'),
+            subtitle: const Text(
+              'ON = ping gagal langsung mode pesawat + verifikasi download',
             ),
-            _numberSlider(
-              title: 'Check interval',
-              subtitle: 'Jeda antar health-check internet',
-              value: cfg.checkIntervalSeconds,
-              min: 5,
-              max: 60,
-              unit: 's',
-              onChanged: (v) => _update(cfg.copyWith(checkIntervalSeconds: v)),
+            value: cfg.simpleMode,
+            onChanged: (v) => _update(cfg.copyWith(simpleMode: v)),
+          ),
+          _numberSlider(
+            title: 'Check interval',
+            subtitle: 'Jeda antar ping paralel',
+            value: cfg.checkIntervalSeconds,
+            min: 5,
+            max: 60,
+            unit: 's',
+            onChanged: (v) => _update(cfg.copyWith(checkIntervalSeconds: v)),
+          ),
+          _numberSlider(
+            title: 'Ping timeout',
+            subtitle: 'Batas tunggu tiap target ping',
+            value: cfg.connectionTimeoutSeconds,
+            min: 2,
+            max: 15,
+            unit: 's',
+            onChanged: (v) =>
+                _update(cfg.copyWith(connectionTimeoutSeconds: v)),
+          ),
+          _numberSlider(
+            title: 'Airplane duration',
+            subtitle: 'Lama mode pesawat ON sebelum dimatikan',
+            value: cfg.airplaneModeDelaySeconds,
+            min: 1,
+            max: 10,
+            unit: 's',
+            onChanged: (v) =>
+                _update(cfg.copyWith(airplaneModeDelaySeconds: v)),
+          ),
+          _numberSlider(
+            title: 'Recovery wait',
+            subtitle: 'Waktu tunggu sinyal sebelum test download',
+            value: cfg.recoveryWaitSeconds,
+            min: 5,
+            max: 30,
+            unit: 's',
+            onChanged: (v) => _update(cfg.copyWith(recoveryWaitSeconds: v)),
+          ),
+          _numberSlider(
+            title: 'Recovery cooldown',
+            subtitle: 'Jeda aman sebelum mode pesawat berikutnya',
+            value: cfg.recoveryCooldownSeconds,
+            min: 30,
+            max: 300,
+            unit: 's',
+            onChanged: (v) => _update(cfg.copyWith(recoveryCooldownSeconds: v)),
+          ),
+          TextField(
+            controller: _destinationController,
+            decoration: const InputDecoration(
+              labelText: 'Custom ping target',
+              hintText: 'http://connectivitycheck.gstatic.com/generate_204',
             ),
-            _numberSlider(
-              title: 'Ping timeout',
-              subtitle: 'Batas tunggu tiap health-check',
-              value: cfg.connectionTimeoutSeconds,
-              min: 2,
-              max: 15,
-              unit: 's',
-              onChanged: (v) =>
-                  _update(cfg.copyWith(connectionTimeoutSeconds: v)),
-            ),
-            TextField(
-              controller: _destinationController,
-              decoration: const InputDecoration(
-                labelText: 'Ping destination',
-                hintText: 'http://connectivitycheck.gstatic.com/generate_204',
-              ),
-              onSubmitted: (v) => _update(cfg.copyWith(pingDestination: v)),
-            ),
-            const Divider(height: 32),
-            const Text(
-              'Recovery',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            _numberSlider(
-              title: 'Max fail count',
-              subtitle: 'Jumlah gagal sebelum mode pesawat dipicu',
-              value: cfg.maxFailCount,
-              min: 1,
-              max: 10,
-              unit: 'x',
-              onChanged: (v) => _update(cfg.copyWith(maxFailCount: v)),
-            ),
-            _numberSlider(
-              title: 'Airplane duration',
-              subtitle: 'Lama mode pesawat ON sebelum dimatikan lagi',
-              value: cfg.airplaneModeDelaySeconds,
-              min: 1,
-              max: 10,
-              unit: 's',
-              onChanged: (v) =>
-                  _update(cfg.copyWith(airplaneModeDelaySeconds: v)),
-            ),
-            _numberSlider(
-              title: 'Recovery wait',
-              subtitle: 'Waktu tunggu setelah tiap level recovery',
-              value: cfg.recoveryWaitSeconds,
-              min: 5,
-              max: 30,
-              unit: 's',
-              onChanged: (v) => _update(cfg.copyWith(recoveryWaitSeconds: v)),
-            ),
-            _numberSlider(
-              title: 'Recovery cooldown',
-              subtitle: 'Jeda aman sebelum recovery berat berikutnya',
-              value: cfg.recoveryCooldownSeconds,
-              min: 30,
-              max: 300,
-              unit: 's',
-              onChanged: (v) =>
-                  _update(cfg.copyWith(recoveryCooldownSeconds: v)),
-            ),
-            _numberSlider(
-              title: 'VPN grace period',
-              subtitle: 'Abaikan fail setelah start/restart VPN',
-              value: cfg.vpnGracePeriodSeconds,
-              min: 5,
-              max: 60,
-              unit: 's',
-              onChanged: (v) => _update(cfg.copyWith(vpnGracePeriodSeconds: v)),
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Restart VPN after recovery'),
-              subtitle: const Text(
-                'FlClash restart setelah jaringan hidup lagi',
-              ),
-              value: cfg.restartVpnAfterRecovery,
-              onChanged: (v) =>
-                  _update(cfg.copyWith(restartVpnAfterRecovery: v)),
-            ),
-          ],
-        ),
+            onSubmitted: (v) => _update(cfg.copyWith(pingDestination: v)),
+          ),
+        ],
       ),
     );
   }
@@ -314,14 +292,14 @@ class _AutoPilotViewState extends State<AutoPilotView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Activity log',
+              'Log',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             if (logs.isEmpty)
               const Text('Belum ada log.')
             else
-              for (final log in logs.take(20))
+              for (final log in logs.take(12))
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text(
@@ -352,12 +330,13 @@ class _AutoPilotViewState extends State<AutoPilotView> {
             children: [
               _buildStatus(state),
               _buildControls(state),
-              _buildSettings(),
               _buildLogs(),
+              _buildAdvancedSettings(),
               const SizedBox(height: 8),
               const Text(
-                'AutoPilot v2: multi-target health check → restart VPN → reset mobile data → airplane cellular reset. Wi‑Fi/hotspot dijaga agar tidak ikut masuk airplane radios.',
+                'Butuh Shizuku aktif. Wi‑Fi/hotspot dijaga agar tidak ikut masuk airplane radios.',
                 style: TextStyle(fontSize: 12),
+                textAlign: TextAlign.center,
               ),
             ],
           );

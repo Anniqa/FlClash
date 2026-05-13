@@ -9,6 +9,7 @@ class AutoPilotConfig {
   final int maxConsecutiveResets;
   final String pingDestination;
   final bool restartVpnAfterRecovery;
+  final bool simpleMode;
 
   const AutoPilotConfig({
     this.checkIntervalSeconds = 15,
@@ -21,6 +22,7 @@ class AutoPilotConfig {
     this.maxConsecutiveResets = 5,
     this.pingDestination = 'http://connectivitycheck.gstatic.com/generate_204',
     this.restartVpnAfterRecovery = true,
+    this.simpleMode = true,
   });
 
   AutoPilotConfig copyWith({
@@ -34,6 +36,7 @@ class AutoPilotConfig {
     int? maxConsecutiveResets,
     String? pingDestination,
     bool? restartVpnAfterRecovery,
+    bool? simpleMode,
   }) {
     return AutoPilotConfig(
       checkIntervalSeconds: checkIntervalSeconds ?? this.checkIntervalSeconds,
@@ -51,6 +54,7 @@ class AutoPilotConfig {
       pingDestination: pingDestination ?? this.pingDestination,
       restartVpnAfterRecovery:
           restartVpnAfterRecovery ?? this.restartVpnAfterRecovery,
+      simpleMode: simpleMode ?? this.simpleMode,
     );
   }
 }

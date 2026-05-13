@@ -26,6 +26,10 @@ class AutoPilotService extends ChangeNotifier {
     'https://www.gstatic.com/generate_204',
     'https://cloudflare.com/cdn-cgi/trace',
   ];
+  static const _recoveryDownloadUrls = [
+    'https://speed.cloudflare.com/__down?bytes=262144',
+    'https://proof.ovh.net/files/1Mb.dat',
+  ];
 
   static final AutoPilotService _instance = AutoPilotService._internal();
 
@@ -102,6 +106,7 @@ class AutoPilotService extends ChangeNotifier {
       ),
       restartVpnAfterRecovery:
           prefs.getBool('${_prefsPrefix}restartVpnAfterRecovery') ?? true,
+      simpleMode: prefs.getBool('${_prefsPrefix}simpleMode') ?? true,
     );
   }
 
@@ -149,6 +154,7 @@ class AutoPilotService extends ChangeNotifier {
       '${_prefsPrefix}restartVpnAfterRecovery',
       _config.restartVpnAfterRecovery,
     );
+    await prefs.setBool('${_prefsPrefix}simpleMode', _config.simpleMode);
     if (wasRunning) await start();
     notifyListeners();
   }
@@ -174,8 +180,10 @@ class AutoPilotService extends ChangeNotifier {
         failCount: 0,
         hasShizukuAccess: _hasShizukuAccess,
         message: _hasShizukuAccess
-            ? 'AutoPilot v2 aktif: smart recovery siap'
-            : 'AutoPilot v2 aktif: monitor only, Shizuku belum aktif',
+            ? (_config.simpleMode
+                  ? 'Simple Mode aktif: siap mode pesawat otomatis'
+                  : 'AutoPilot v2 aktif: smart recovery siap')
+            : 'AutoPilot aktif: monitor only, Shizuku belum aktif',
       ),
     );
     unawaited(_checkAndRecover());
@@ -260,8 +268,12 @@ class AutoPilotService extends ChangeNotifier {
           message: '${health.summary} ($newFailCount/${_config.maxFailCount})',
         ),
       );
-      if (newFailCount >= _config.maxFailCount) {
-        await _performSmartRecovery(health);
+      if (_config.simpleMode || newFailCount >= _config.maxFailCount) {
+        if (_config.simpleMode) {
+          await _performSimpleRecovery(health);
+        } else {
+          await _performSmartRecovery(health);
+        }
       }
     } catch (e) {
       _updateState(
@@ -449,6 +461,125 @@ class AutoPilotService extends ChangeNotifier {
     final elapsed = DateTime.now().difference(lastRecoveryAt).inSeconds;
     final left = _config.recoveryCooldownSeconds - elapsed;
     return left > 0 ? left : 0;
+  }
+
+  Future<void> _performSimpleRecovery(_HealthCheckResult health) async {
+    final cooldownLeft = _cooldownLeftSeconds;
+    if (cooldownLeft > 0) {
+      _updateState(
+        _currentState.copyWith(
+          status: AutoPilotStatus.running,
+          message:
+              'Cooldown ${cooldownLeft}s, tunggu sebelum mode pesawat lagi',
+        ),
+      );
+      return;
+    }
+
+    if (!_hasShizukuAccess) {
+      _hasShizukuAccess = await _ensureShizukuAccess();
+    }
+    if (!_hasShizukuAccess) {
+      _updateState(
+        _currentState.copyWith(
+          status: AutoPilotStatus.error,
+          hasShizukuAccess: false,
+          message: 'Butuh Shizuku aktif untuk Simple Mode',
+        ),
+      );
+      return;
+    }
+
+    _consecutiveResets++;
+    _lastRecoveryAt = DateTime.now();
+    _updateState(
+      _currentState.copyWith(
+        status: AutoPilotStatus.recovering,
+        message: 'Ping paralel gagal: mode pesawat otomatis...',
+      ),
+    );
+
+    try {
+      await _resetAirplaneMode();
+      await Future.delayed(Duration(seconds: _config.recoveryWaitSeconds));
+      final recovered = await _verifyRecoveryDownload();
+      if (recovered &&
+          appController.isAttach &&
+          appController.isStart &&
+          _config.restartVpnAfterRecovery) {
+        await _restartVpn();
+      }
+      _graceUntil = DateTime.now().add(
+        Duration(seconds: _config.vpnGracePeriodSeconds),
+      );
+      _updateState(
+        _currentState.copyWith(
+          status: AutoPilotStatus.running,
+          failCount: recovered ? 0 : _currentState.failCount,
+          hasInternet: recovered,
+          hasShizukuAccess: true,
+          message: recovered
+              ? 'Recovery verified: download OK'
+              : 'Mode pesawat selesai, download belum tembus',
+        ),
+      );
+    } catch (e) {
+      _updateState(
+        _currentState.copyWith(
+          status: AutoPilotStatus.error,
+          message: 'Simple recovery gagal: $e',
+        ),
+      );
+    }
+  }
+
+  Future<bool> _verifyRecoveryDownload() async {
+    _updateState(
+      _currentState.copyWith(
+        status: AutoPilotStatus.checking,
+        message: 'Verifikasi recovery: test download...',
+      ),
+    );
+    for (final url in _recoveryDownloadUrls) {
+      final ok = await _probeDownload(url);
+      if (ok) {
+        _addLog('RECOVERY DOWNLOAD OK: $url');
+        return true;
+      }
+      _addLog('RECOVERY DOWNLOAD FAIL: $url');
+    }
+    return false;
+  }
+
+  Future<bool> _probeDownload(String target) async {
+    final client = HttpClient()
+      ..connectionTimeout = Duration(seconds: _config.connectionTimeoutSeconds);
+    try {
+      final request = await client
+          .getUrl(Uri.parse(target))
+          .timeout(Duration(seconds: _config.connectionTimeoutSeconds));
+      final response = await request.close().timeout(
+        Duration(seconds: _config.connectionTimeoutSeconds),
+      );
+      var received = 0;
+      await for (final chunk in response.timeout(
+        Duration(seconds: _config.connectionTimeoutSeconds),
+      )) {
+        received += chunk.length;
+        if (received >= 64 * 1024) break;
+      }
+      final ok =
+          response.statusCode >= 200 &&
+          response.statusCode < 400 &&
+          received >= 32 * 1024;
+      _addLog('DOWNLOAD ${response.statusCode} ${received ~/ 1024}KB');
+      return ok;
+    } catch (e) {
+      _addLog('DOWNLOAD gagal: ${e.toString().split('\n').first}');
+      return false;
+    } finally {
+      client.close(force: true);
+    }
   }
 
   Future<bool> _attemptRecoveryStep({
