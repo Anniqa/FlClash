@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 class VPNItem extends ConsumerWidget {
@@ -77,6 +79,174 @@ class VpnBackendItem extends ConsumerWidget {
               .update((state) => state.copyWith(backend: value));
         },
       ),
+    );
+  }
+}
+
+class ZiVpnImportClipboardItem extends ConsumerWidget {
+  const ZiVpnImportClipboardItem({super.key});
+
+  String _stringValue(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value == null) continue;
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+      if (value is num || value is bool) return value.toString();
+    }
+    return '';
+  }
+
+  bool? _boolValue(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value is bool) return value;
+      if (value is num) return value != 0;
+      if (value is String) {
+        final normalized = value.trim().toLowerCase();
+        if ([
+          'true',
+          'yes',
+          'on',
+          '1',
+          'enable',
+          'enabled',
+        ].contains(normalized)) {
+          return true;
+        }
+        if ([
+          'false',
+          'no',
+          'off',
+          '0',
+          'disable',
+          'disabled',
+        ].contains(normalized)) {
+          return false;
+        }
+      }
+    }
+    return null;
+  }
+
+  int? _intValue(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      if (value is String) {
+        final parsed = int.tryParse(value.trim());
+        if (parsed != null) return parsed;
+      }
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? _decodeProfile(String text) {
+    final decoded = jsonDecode(text.trim());
+    final data = decoded is List && decoded.isNotEmpty
+        ? decoded.first
+        : decoded;
+    if (data is Map) return data.cast<String, dynamic>();
+    return null;
+  }
+
+  Future<void> _import(BuildContext context, WidgetRef ref) async {
+    try {
+      final data = await Clipboard.getData('text/plain');
+      final text = data?.text?.trim();
+      if (text == null || text.isEmpty) {
+        throw const FormatException('Clipboard kosong');
+      }
+      final profile = _decodeProfile(text);
+      if (profile == null) {
+        throw const FormatException('JSON profile tidak valid');
+      }
+
+      final server = _stringValue(profile, const [
+        'server',
+        'host',
+        'ip',
+        'address',
+      ]);
+      final password = _stringValue(profile, const [
+        'password',
+        'pass',
+        'auth',
+        'token',
+      ]);
+      final portRange = _stringValue(profile, const [
+        'port_range',
+        'portRange',
+        'range',
+        'server_range',
+        'port',
+      ]);
+      final obfs = _stringValue(profile, const ['obfs', 'obsf', 'sni']);
+      final udpgw = _boolValue(profile, const [
+        'udpgw',
+        'udp_gw',
+        'udpGw',
+        'enable_udpgw',
+        'enableUdpGw',
+      ]);
+      final coreCount = _intValue(profile, const [
+        'core_count',
+        'coreCount',
+        'cores',
+      ]);
+      final udpgwPort = _intValue(profile, const [
+        'udpgw_port',
+        'udpGwPort',
+        'udp_gw_port',
+      ]);
+
+      if (server.isEmpty || password.isEmpty) {
+        throw const FormatException(
+          'JSON wajib punya server/host dan password/pass',
+        );
+      }
+
+      ref
+          .read(vpnSettingProvider.notifier)
+          .update(
+            (state) => state.copyWith(
+              backend: 'zivpn',
+              zivpnServer: server,
+              zivpnPortRange: portRange.isEmpty
+                  ? state.zivpnPortRange
+                  : portRange,
+              zivpnPassword: password,
+              zivpnObfs: obfs.isEmpty ? state.zivpnObfs : obfs,
+              zivpnEnableUdpGw: udpgw ?? state.zivpnEnableUdpGw,
+              zivpnUdpGwPort: udpgwPort ?? state.zivpnUdpGwPort,
+              zivpnCoreCount: (coreCount ?? state.zivpnCoreCount).clamp(1, 8),
+            ),
+          );
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ZiVPN JSON imported from clipboard')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Import ZiVPN JSON gagal: $e')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListItem(
+      leading: const Icon(Icons.content_paste),
+      title: const Text('Import ZiVPN JSON'),
+      subtitle: const Text(
+        'Paste JSON dari clipboard, termasuk udpgw true/false',
+      ),
+      trailing: const Icon(Icons.keyboard_arrow_right),
+      onTap: () => _import(context, ref),
     );
   }
 }
