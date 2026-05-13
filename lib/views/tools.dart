@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' show dirname, join;
 
+import 'autopilot/autopilot.dart';
 import 'config/advanced.dart';
 import 'developer.dart';
 import 'theme.dart';
@@ -74,6 +75,7 @@ class _ToolViewState extends ConsumerState<ToolsView> {
         if (system.isDesktop) const _HotkeyItem(),
         if (system.isWindows) const _LoopbackItem(),
         if (system.isAndroid) const _AccessItem(),
+        if (system.isAndroid) const _AutoPilotItem(),
         const _ConfigItem(),
         const _AdvancedConfigItem(),
         const _SettingItem(),
@@ -223,6 +225,20 @@ class _AccessItem extends StatelessWidget {
       title: Text(context.appLocalizations.accessControl),
       subtitle: Text(context.appLocalizations.accessControlDesc),
       delegate: OpenDelegate(widget: const AccessView()),
+    );
+  }
+}
+
+class _AutoPilotItem extends StatelessWidget {
+  const _AutoPilotItem();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListItem.open(
+      leading: const Icon(Icons.flight_takeoff),
+      title: const Text('AutoPilot'),
+      subtitle: const Text('Shizuku airplane-mode recovery watchdog'),
+      delegate: OpenDelegate(widget: const AutoPilotView()),
     );
   }
 }
