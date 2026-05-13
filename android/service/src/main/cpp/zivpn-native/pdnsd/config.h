@@ -108,11 +108,11 @@
  * default: native; others: gdbm */
 #define CACHE_DBM DBM_NATIVE
 
-#define CONFDIR "/data/data/com.minizivpn.app"
+#define CONFDIR "/data/data/com.follow.clash"
 
-#define CACHEDIR "/data/data/com.minizivpn.app"
+#define CACHEDIR "/data/data/com.follow.clash"
 
-#define TEMPDIR "/data/data/com.minizivpn.app/cache";
+#define TEMPDIR "/data/data/com.follow.clash/cache";
 
 /* This is for various debugging facilities that produce debug output and
  * double-check some values. You can enable debug messages with the -g option.
