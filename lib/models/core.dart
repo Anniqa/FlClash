@@ -50,6 +50,14 @@ abstract class VpnOptions with _$VpnOptions {
     required List<String> bypassDomain,
     required String stack,
     @Default([]) List<String> routeAddress,
+    @Default('clash') String backend,
+    @Default('') String zivpnServer,
+    @Default('') String zivpnPortRange,
+    @Default('') String zivpnPassword,
+    @Default('') String zivpnObfs,
+    @Default(true) bool zivpnEnableUdpGw,
+    @Default(7300) int zivpnUdpGwPort,
+    @Default(2) int zivpnCoreCount,
   }) = _VpnOptions;
 
   factory VpnOptions.fromJson(Map<String, Object?> json) =>

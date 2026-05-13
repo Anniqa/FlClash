@@ -152,6 +152,14 @@ abstract class VpnProps with _$VpnProps {
     @Default(true) bool allowBypass,
     @Default(false) bool dnsHijacking,
     @Default(defaultAccessControlProps) AccessControlProps accessControlProps,
+    @Default('clash') String backend,
+    @Default('') String zivpnServer,
+    @Default('') String zivpnPortRange,
+    @Default('') String zivpnPassword,
+    @Default('') String zivpnObfs,
+    @Default(true) bool zivpnEnableUdpGw,
+    @Default(7300) int zivpnUdpGwPort,
+    @Default(2) int zivpnCoreCount,
   }) = _VpnProps;
 
   factory VpnProps.fromJson(Map<String, Object?>? json) =>

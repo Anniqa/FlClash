@@ -634,6 +634,14 @@ SharedState sharedState(Ref ref) {
       accessControlProps: vpnSetting.accessControlProps,
       allowBypass: vpnSetting.allowBypass,
       bypassDomain: bypassDomain,
+      backend: vpnSetting.backend,
+      zivpnServer: vpnSetting.zivpnServer,
+      zivpnPortRange: vpnSetting.zivpnPortRange,
+      zivpnPassword: vpnSetting.zivpnPassword,
+      zivpnObfs: vpnSetting.zivpnObfs,
+      zivpnEnableUdpGw: vpnSetting.zivpnEnableUdpGw,
+      zivpnUdpGwPort: vpnSetting.zivpnUdpGwPort,
+      zivpnCoreCount: vpnSetting.zivpnCoreCount,
     ),
   );
 }

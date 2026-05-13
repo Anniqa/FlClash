@@ -21,6 +21,7 @@ import com.follow.clash.service.modules.NetworkObserveModule
 import com.follow.clash.service.modules.NotificationModule
 import com.follow.clash.service.modules.SuspendModule
 import com.follow.clash.service.modules.moduleLoader
+import com.follow.clash.service.zivpn.ZiVpnEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import java.net.InetSocketAddress
@@ -37,6 +38,8 @@ class VpnService : SystemVpnService(), IBaseService,
         install(NotificationModule(self))
         install(SuspendModule(self))
     }
+
+    private val ziVpnEngine by lazy { ZiVpnEngine(self) }
 
     override fun onCreate() {
         super.onCreate()
@@ -127,6 +130,10 @@ class VpnService : SystemVpnService(), IBaseService,
     }
 
     private fun handleStart(options: VpnOptions) {
+        if (options.backend.equals("zivpn", ignoreCase = true)) {
+            handleStartZiVpn(options)
+            return
+        }
         val fd = with(Builder()) {
             val cidr = IPV4_ADDRESS.toCIDR()
             addAddress(cidr.address, cidr.prefixLength)
@@ -233,6 +240,41 @@ class VpnService : SystemVpnService(), IBaseService,
         )
     }
 
+
+    private fun handleStartZiVpn(options: VpnOptions) {
+        val pfd = with(Builder()) {
+            addAddress("169.254.1.1", 24)
+            addDnsServer("169.254.1.2")
+            addRoute(NET_ANY, 0)
+            if (options.ipv6) {
+                runCatching {
+                    addAddress("fd00:1::1", 64)
+                    addRoute(NET_ANY6, 0)
+                    addDnsServer("fd00:1::2")
+                }
+            }
+            options.accessControlProps.let { accessControl ->
+                if (accessControl.enable) {
+                    when (accessControl.mode) {
+                        AccessControlMode.ACCEPT_SELECTED -> {
+                            (accessControl.acceptList + packageName).forEach { addAllowedApplication(it) }
+                        }
+                        AccessControlMode.REJECT_SELECTED -> {
+                            (accessControl.rejectList - packageName).forEach { addDisallowedApplication(it) }
+                        }
+                    }
+                }
+            }
+            setSession("FlClash ZiVPN")
+            setMtu(1500)
+            setBlocking(false)
+            if (Build.VERSION.SDK_INT >= 29) setMetered(false)
+            if (options.allowBypass) allowBypass()
+            establish() ?: throw NullPointerException("Establish ZiVPN rejected by system")
+        }
+        ziVpnEngine.start(pfd, 1500, options)
+    }
+
     override fun start() {
         try {
             loader.load()
@@ -246,6 +288,7 @@ class VpnService : SystemVpnService(), IBaseService,
 
     override fun stop() {
         loader.cancel()
+        ziVpnEngine.stop()
         Core.stopTun()
         stopSelf()
     }

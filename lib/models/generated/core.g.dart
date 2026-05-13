@@ -95,6 +95,14 @@ _VpnOptions _$VpnOptionsFromJson(Map<String, dynamic> json) => _VpnOptions(
           ?.map((e) => e as String)
           .toList() ??
       const [],
+  backend: json['backend'] as String? ?? 'clash',
+  zivpnServer: json['zivpnServer'] as String? ?? '',
+  zivpnPortRange: json['zivpnPortRange'] as String? ?? '',
+  zivpnPassword: json['zivpnPassword'] as String? ?? '',
+  zivpnObfs: json['zivpnObfs'] as String? ?? '',
+  zivpnEnableUdpGw: json['zivpnEnableUdpGw'] as bool? ?? true,
+  zivpnUdpGwPort: (json['zivpnUdpGwPort'] as num?)?.toInt() ?? 7300,
+  zivpnCoreCount: (json['zivpnCoreCount'] as num?)?.toInt() ?? 2,
 );
 
 Map<String, dynamic> _$VpnOptionsToJson(_VpnOptions instance) =>
@@ -109,6 +117,14 @@ Map<String, dynamic> _$VpnOptionsToJson(_VpnOptions instance) =>
       'bypassDomain': instance.bypassDomain,
       'stack': instance.stack,
       'routeAddress': instance.routeAddress,
+      'backend': instance.backend,
+      'zivpnServer': instance.zivpnServer,
+      'zivpnPortRange': instance.zivpnPortRange,
+      'zivpnPassword': instance.zivpnPassword,
+      'zivpnObfs': instance.zivpnObfs,
+      'zivpnEnableUdpGw': instance.zivpnEnableUdpGw,
+      'zivpnUdpGwPort': instance.zivpnUdpGwPort,
+      'zivpnCoreCount': instance.zivpnCoreCount,
     };
 
 _InitParams _$InitParamsFromJson(Map<String, dynamic> json) => _InitParams(

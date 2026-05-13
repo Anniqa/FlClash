@@ -595,7 +595,7 @@ $TunCopyWith<$Res> get tun {
 /// @nodoc
 mixin _$VpnOptions {
 
- bool get enable; int get port; bool get ipv6; bool get dnsHijacking; AccessControlProps get accessControlProps; bool get allowBypass; bool get systemProxy; List<String> get bypassDomain; String get stack; List<String> get routeAddress;
+ bool get enable; int get port; bool get ipv6; bool get dnsHijacking; AccessControlProps get accessControlProps; bool get allowBypass; bool get systemProxy; List<String> get bypassDomain; String get stack; List<String> get routeAddress; String get backend; String get zivpnServer; String get zivpnPortRange; String get zivpnPassword; String get zivpnObfs; bool get zivpnEnableUdpGw; int get zivpnUdpGwPort; int get zivpnCoreCount;
 /// Create a copy of VpnOptions
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -608,16 +608,16 @@ $VpnOptionsCopyWith<VpnOptions> get copyWith => _$VpnOptionsCopyWithImpl<VpnOpti
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is VpnOptions&&(identical(other.enable, enable) || other.enable == enable)&&(identical(other.port, port) || other.port == port)&&(identical(other.ipv6, ipv6) || other.ipv6 == ipv6)&&(identical(other.dnsHijacking, dnsHijacking) || other.dnsHijacking == dnsHijacking)&&(identical(other.accessControlProps, accessControlProps) || other.accessControlProps == accessControlProps)&&(identical(other.allowBypass, allowBypass) || other.allowBypass == allowBypass)&&(identical(other.systemProxy, systemProxy) || other.systemProxy == systemProxy)&&const DeepCollectionEquality().equals(other.bypassDomain, bypassDomain)&&(identical(other.stack, stack) || other.stack == stack)&&const DeepCollectionEquality().equals(other.routeAddress, routeAddress));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is VpnOptions&&(identical(other.enable, enable) || other.enable == enable)&&(identical(other.port, port) || other.port == port)&&(identical(other.ipv6, ipv6) || other.ipv6 == ipv6)&&(identical(other.dnsHijacking, dnsHijacking) || other.dnsHijacking == dnsHijacking)&&(identical(other.accessControlProps, accessControlProps) || other.accessControlProps == accessControlProps)&&(identical(other.allowBypass, allowBypass) || other.allowBypass == allowBypass)&&(identical(other.systemProxy, systemProxy) || other.systemProxy == systemProxy)&&const DeepCollectionEquality().equals(other.bypassDomain, bypassDomain)&&(identical(other.stack, stack) || other.stack == stack)&&const DeepCollectionEquality().equals(other.routeAddress, routeAddress)&&(identical(other.backend, backend) || other.backend == backend)&&(identical(other.zivpnServer, zivpnServer) || other.zivpnServer == zivpnServer)&&(identical(other.zivpnPortRange, zivpnPortRange) || other.zivpnPortRange == zivpnPortRange)&&(identical(other.zivpnPassword, zivpnPassword) || other.zivpnPassword == zivpnPassword)&&(identical(other.zivpnObfs, zivpnObfs) || other.zivpnObfs == zivpnObfs)&&(identical(other.zivpnEnableUdpGw, zivpnEnableUdpGw) || other.zivpnEnableUdpGw == zivpnEnableUdpGw)&&(identical(other.zivpnUdpGwPort, zivpnUdpGwPort) || other.zivpnUdpGwPort == zivpnUdpGwPort)&&(identical(other.zivpnCoreCount, zivpnCoreCount) || other.zivpnCoreCount == zivpnCoreCount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,enable,port,ipv6,dnsHijacking,accessControlProps,allowBypass,systemProxy,const DeepCollectionEquality().hash(bypassDomain),stack,const DeepCollectionEquality().hash(routeAddress));
+int get hashCode => Object.hash(runtimeType,enable,port,ipv6,dnsHijacking,accessControlProps,allowBypass,systemProxy,const DeepCollectionEquality().hash(bypassDomain),stack,const DeepCollectionEquality().hash(routeAddress),backend,zivpnServer,zivpnPortRange,zivpnPassword,zivpnObfs,zivpnEnableUdpGw,zivpnUdpGwPort,zivpnCoreCount);
 
 @override
 String toString() {
-  return 'VpnOptions(enable: $enable, port: $port, ipv6: $ipv6, dnsHijacking: $dnsHijacking, accessControlProps: $accessControlProps, allowBypass: $allowBypass, systemProxy: $systemProxy, bypassDomain: $bypassDomain, stack: $stack, routeAddress: $routeAddress)';
+  return 'VpnOptions(enable: $enable, port: $port, ipv6: $ipv6, dnsHijacking: $dnsHijacking, accessControlProps: $accessControlProps, allowBypass: $allowBypass, systemProxy: $systemProxy, bypassDomain: $bypassDomain, stack: $stack, routeAddress: $routeAddress, backend: $backend, zivpnServer: $zivpnServer, zivpnPortRange: $zivpnPortRange, zivpnPassword: $zivpnPassword, zivpnObfs: $zivpnObfs, zivpnEnableUdpGw: $zivpnEnableUdpGw, zivpnUdpGwPort: $zivpnUdpGwPort, zivpnCoreCount: $zivpnCoreCount)';
 }
 
 
@@ -628,7 +628,7 @@ abstract mixin class $VpnOptionsCopyWith<$Res>  {
   factory $VpnOptionsCopyWith(VpnOptions value, $Res Function(VpnOptions) _then) = _$VpnOptionsCopyWithImpl;
 @useResult
 $Res call({
- bool enable, int port, bool ipv6, bool dnsHijacking, AccessControlProps accessControlProps, bool allowBypass, bool systemProxy, List<String> bypassDomain, String stack, List<String> routeAddress
+ bool enable, int port, bool ipv6, bool dnsHijacking, AccessControlProps accessControlProps, bool allowBypass, bool systemProxy, List<String> bypassDomain, String stack, List<String> routeAddress, String backend, String zivpnServer, String zivpnPortRange, String zivpnPassword, String zivpnObfs, bool zivpnEnableUdpGw, int zivpnUdpGwPort, int zivpnCoreCount
 });
 
 
@@ -645,7 +645,7 @@ class _$VpnOptionsCopyWithImpl<$Res>
 
 /// Create a copy of VpnOptions
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? enable = null,Object? port = null,Object? ipv6 = null,Object? dnsHijacking = null,Object? accessControlProps = null,Object? allowBypass = null,Object? systemProxy = null,Object? bypassDomain = null,Object? stack = null,Object? routeAddress = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? enable = null,Object? port = null,Object? ipv6 = null,Object? dnsHijacking = null,Object? accessControlProps = null,Object? allowBypass = null,Object? systemProxy = null,Object? bypassDomain = null,Object? stack = null,Object? routeAddress = null,Object? backend = null,Object? zivpnServer = null,Object? zivpnPortRange = null,Object? zivpnPassword = null,Object? zivpnObfs = null,Object? zivpnEnableUdpGw = null,Object? zivpnUdpGwPort = null,Object? zivpnCoreCount = null,}) {
   return _then(_self.copyWith(
 enable: null == enable ? _self.enable : enable // ignore: cast_nullable_to_non_nullable
 as bool,port: null == port ? _self.port : port // ignore: cast_nullable_to_non_nullable
@@ -657,7 +657,15 @@ as bool,systemProxy: null == systemProxy ? _self.systemProxy : systemProxy // ig
 as bool,bypassDomain: null == bypassDomain ? _self.bypassDomain : bypassDomain // ignore: cast_nullable_to_non_nullable
 as List<String>,stack: null == stack ? _self.stack : stack // ignore: cast_nullable_to_non_nullable
 as String,routeAddress: null == routeAddress ? _self.routeAddress : routeAddress // ignore: cast_nullable_to_non_nullable
-as List<String>,
+as List<String>,backend: null == backend ? _self.backend : backend // ignore: cast_nullable_to_non_nullable
+as String,zivpnServer: null == zivpnServer ? _self.zivpnServer : zivpnServer // ignore: cast_nullable_to_non_nullable
+as String,zivpnPortRange: null == zivpnPortRange ? _self.zivpnPortRange : zivpnPortRange // ignore: cast_nullable_to_non_nullable
+as String,zivpnPassword: null == zivpnPassword ? _self.zivpnPassword : zivpnPassword // ignore: cast_nullable_to_non_nullable
+as String,zivpnObfs: null == zivpnObfs ? _self.zivpnObfs : zivpnObfs // ignore: cast_nullable_to_non_nullable
+as String,zivpnEnableUdpGw: null == zivpnEnableUdpGw ? _self.zivpnEnableUdpGw : zivpnEnableUdpGw // ignore: cast_nullable_to_non_nullable
+as bool,zivpnUdpGwPort: null == zivpnUdpGwPort ? _self.zivpnUdpGwPort : zivpnUdpGwPort // ignore: cast_nullable_to_non_nullable
+as int,zivpnCoreCount: null == zivpnCoreCount ? _self.zivpnCoreCount : zivpnCoreCount // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 /// Create a copy of VpnOptions
@@ -751,10 +759,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool enable,  int port,  bool ipv6,  bool dnsHijacking,  AccessControlProps accessControlProps,  bool allowBypass,  bool systemProxy,  List<String> bypassDomain,  String stack,  List<String> routeAddress)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool enable,  int port,  bool ipv6,  bool dnsHijacking,  AccessControlProps accessControlProps,  bool allowBypass,  bool systemProxy,  List<String> bypassDomain,  String stack,  List<String> routeAddress,  String backend,  String zivpnServer,  String zivpnPortRange,  String zivpnPassword,  String zivpnObfs,  bool zivpnEnableUdpGw,  int zivpnUdpGwPort,  int zivpnCoreCount)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _VpnOptions() when $default != null:
-return $default(_that.enable,_that.port,_that.ipv6,_that.dnsHijacking,_that.accessControlProps,_that.allowBypass,_that.systemProxy,_that.bypassDomain,_that.stack,_that.routeAddress);case _:
+return $default(_that.enable,_that.port,_that.ipv6,_that.dnsHijacking,_that.accessControlProps,_that.allowBypass,_that.systemProxy,_that.bypassDomain,_that.stack,_that.routeAddress,_that.backend,_that.zivpnServer,_that.zivpnPortRange,_that.zivpnPassword,_that.zivpnObfs,_that.zivpnEnableUdpGw,_that.zivpnUdpGwPort,_that.zivpnCoreCount);case _:
   return orElse();
 
 }
@@ -772,10 +780,10 @@ return $default(_that.enable,_that.port,_that.ipv6,_that.dnsHijacking,_that.acce
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool enable,  int port,  bool ipv6,  bool dnsHijacking,  AccessControlProps accessControlProps,  bool allowBypass,  bool systemProxy,  List<String> bypassDomain,  String stack,  List<String> routeAddress)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool enable,  int port,  bool ipv6,  bool dnsHijacking,  AccessControlProps accessControlProps,  bool allowBypass,  bool systemProxy,  List<String> bypassDomain,  String stack,  List<String> routeAddress,  String backend,  String zivpnServer,  String zivpnPortRange,  String zivpnPassword,  String zivpnObfs,  bool zivpnEnableUdpGw,  int zivpnUdpGwPort,  int zivpnCoreCount)  $default,) {final _that = this;
 switch (_that) {
 case _VpnOptions():
-return $default(_that.enable,_that.port,_that.ipv6,_that.dnsHijacking,_that.accessControlProps,_that.allowBypass,_that.systemProxy,_that.bypassDomain,_that.stack,_that.routeAddress);case _:
+return $default(_that.enable,_that.port,_that.ipv6,_that.dnsHijacking,_that.accessControlProps,_that.allowBypass,_that.systemProxy,_that.bypassDomain,_that.stack,_that.routeAddress,_that.backend,_that.zivpnServer,_that.zivpnPortRange,_that.zivpnPassword,_that.zivpnObfs,_that.zivpnEnableUdpGw,_that.zivpnUdpGwPort,_that.zivpnCoreCount);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -792,10 +800,10 @@ return $default(_that.enable,_that.port,_that.ipv6,_that.dnsHijacking,_that.acce
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool enable,  int port,  bool ipv6,  bool dnsHijacking,  AccessControlProps accessControlProps,  bool allowBypass,  bool systemProxy,  List<String> bypassDomain,  String stack,  List<String> routeAddress)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool enable,  int port,  bool ipv6,  bool dnsHijacking,  AccessControlProps accessControlProps,  bool allowBypass,  bool systemProxy,  List<String> bypassDomain,  String stack,  List<String> routeAddress,  String backend,  String zivpnServer,  String zivpnPortRange,  String zivpnPassword,  String zivpnObfs,  bool zivpnEnableUdpGw,  int zivpnUdpGwPort,  int zivpnCoreCount)?  $default,) {final _that = this;
 switch (_that) {
 case _VpnOptions() when $default != null:
-return $default(_that.enable,_that.port,_that.ipv6,_that.dnsHijacking,_that.accessControlProps,_that.allowBypass,_that.systemProxy,_that.bypassDomain,_that.stack,_that.routeAddress);case _:
+return $default(_that.enable,_that.port,_that.ipv6,_that.dnsHijacking,_that.accessControlProps,_that.allowBypass,_that.systemProxy,_that.bypassDomain,_that.stack,_that.routeAddress,_that.backend,_that.zivpnServer,_that.zivpnPortRange,_that.zivpnPassword,_that.zivpnObfs,_that.zivpnEnableUdpGw,_that.zivpnUdpGwPort,_that.zivpnCoreCount);case _:
   return null;
 
 }
@@ -807,7 +815,7 @@ return $default(_that.enable,_that.port,_that.ipv6,_that.dnsHijacking,_that.acce
 @JsonSerializable()
 
 class _VpnOptions implements VpnOptions {
-  const _VpnOptions({required this.enable, required this.port, required this.ipv6, required this.dnsHijacking, required this.accessControlProps, required this.allowBypass, required this.systemProxy, required final  List<String> bypassDomain, required this.stack, final  List<String> routeAddress = const []}): _bypassDomain = bypassDomain,_routeAddress = routeAddress;
+  const _VpnOptions({required this.enable, required this.port, required this.ipv6, required this.dnsHijacking, required this.accessControlProps, required this.allowBypass, required this.systemProxy, required final  List<String> bypassDomain, required this.stack, final  List<String> routeAddress = const [], this.backend = 'clash', this.zivpnServer = '', this.zivpnPortRange = '', this.zivpnPassword = '', this.zivpnObfs = '', this.zivpnEnableUdpGw = true, this.zivpnUdpGwPort = 7300, this.zivpnCoreCount = 2}): _bypassDomain = bypassDomain,_routeAddress = routeAddress;
   factory _VpnOptions.fromJson(Map<String, dynamic> json) => _$VpnOptionsFromJson(json);
 
 @override final  bool enable;
@@ -832,6 +840,14 @@ class _VpnOptions implements VpnOptions {
   return EqualUnmodifiableListView(_routeAddress);
 }
 
+@override@JsonKey() final  String backend;
+@override@JsonKey() final  String zivpnServer;
+@override@JsonKey() final  String zivpnPortRange;
+@override@JsonKey() final  String zivpnPassword;
+@override@JsonKey() final  String zivpnObfs;
+@override@JsonKey() final  bool zivpnEnableUdpGw;
+@override@JsonKey() final  int zivpnUdpGwPort;
+@override@JsonKey() final  int zivpnCoreCount;
 
 /// Create a copy of VpnOptions
 /// with the given fields replaced by the non-null parameter values.
@@ -846,16 +862,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _VpnOptions&&(identical(other.enable, enable) || other.enable == enable)&&(identical(other.port, port) || other.port == port)&&(identical(other.ipv6, ipv6) || other.ipv6 == ipv6)&&(identical(other.dnsHijacking, dnsHijacking) || other.dnsHijacking == dnsHijacking)&&(identical(other.accessControlProps, accessControlProps) || other.accessControlProps == accessControlProps)&&(identical(other.allowBypass, allowBypass) || other.allowBypass == allowBypass)&&(identical(other.systemProxy, systemProxy) || other.systemProxy == systemProxy)&&const DeepCollectionEquality().equals(other._bypassDomain, _bypassDomain)&&(identical(other.stack, stack) || other.stack == stack)&&const DeepCollectionEquality().equals(other._routeAddress, _routeAddress));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _VpnOptions&&(identical(other.enable, enable) || other.enable == enable)&&(identical(other.port, port) || other.port == port)&&(identical(other.ipv6, ipv6) || other.ipv6 == ipv6)&&(identical(other.dnsHijacking, dnsHijacking) || other.dnsHijacking == dnsHijacking)&&(identical(other.accessControlProps, accessControlProps) || other.accessControlProps == accessControlProps)&&(identical(other.allowBypass, allowBypass) || other.allowBypass == allowBypass)&&(identical(other.systemProxy, systemProxy) || other.systemProxy == systemProxy)&&const DeepCollectionEquality().equals(other._bypassDomain, _bypassDomain)&&(identical(other.stack, stack) || other.stack == stack)&&const DeepCollectionEquality().equals(other._routeAddress, _routeAddress)&&(identical(other.backend, backend) || other.backend == backend)&&(identical(other.zivpnServer, zivpnServer) || other.zivpnServer == zivpnServer)&&(identical(other.zivpnPortRange, zivpnPortRange) || other.zivpnPortRange == zivpnPortRange)&&(identical(other.zivpnPassword, zivpnPassword) || other.zivpnPassword == zivpnPassword)&&(identical(other.zivpnObfs, zivpnObfs) || other.zivpnObfs == zivpnObfs)&&(identical(other.zivpnEnableUdpGw, zivpnEnableUdpGw) || other.zivpnEnableUdpGw == zivpnEnableUdpGw)&&(identical(other.zivpnUdpGwPort, zivpnUdpGwPort) || other.zivpnUdpGwPort == zivpnUdpGwPort)&&(identical(other.zivpnCoreCount, zivpnCoreCount) || other.zivpnCoreCount == zivpnCoreCount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,enable,port,ipv6,dnsHijacking,accessControlProps,allowBypass,systemProxy,const DeepCollectionEquality().hash(_bypassDomain),stack,const DeepCollectionEquality().hash(_routeAddress));
+int get hashCode => Object.hash(runtimeType,enable,port,ipv6,dnsHijacking,accessControlProps,allowBypass,systemProxy,const DeepCollectionEquality().hash(_bypassDomain),stack,const DeepCollectionEquality().hash(_routeAddress),backend,zivpnServer,zivpnPortRange,zivpnPassword,zivpnObfs,zivpnEnableUdpGw,zivpnUdpGwPort,zivpnCoreCount);
 
 @override
 String toString() {
-  return 'VpnOptions(enable: $enable, port: $port, ipv6: $ipv6, dnsHijacking: $dnsHijacking, accessControlProps: $accessControlProps, allowBypass: $allowBypass, systemProxy: $systemProxy, bypassDomain: $bypassDomain, stack: $stack, routeAddress: $routeAddress)';
+  return 'VpnOptions(enable: $enable, port: $port, ipv6: $ipv6, dnsHijacking: $dnsHijacking, accessControlProps: $accessControlProps, allowBypass: $allowBypass, systemProxy: $systemProxy, bypassDomain: $bypassDomain, stack: $stack, routeAddress: $routeAddress, backend: $backend, zivpnServer: $zivpnServer, zivpnPortRange: $zivpnPortRange, zivpnPassword: $zivpnPassword, zivpnObfs: $zivpnObfs, zivpnEnableUdpGw: $zivpnEnableUdpGw, zivpnUdpGwPort: $zivpnUdpGwPort, zivpnCoreCount: $zivpnCoreCount)';
 }
 
 
@@ -866,7 +882,7 @@ abstract mixin class _$VpnOptionsCopyWith<$Res> implements $VpnOptionsCopyWith<$
   factory _$VpnOptionsCopyWith(_VpnOptions value, $Res Function(_VpnOptions) _then) = __$VpnOptionsCopyWithImpl;
 @override @useResult
 $Res call({
- bool enable, int port, bool ipv6, bool dnsHijacking, AccessControlProps accessControlProps, bool allowBypass, bool systemProxy, List<String> bypassDomain, String stack, List<String> routeAddress
+ bool enable, int port, bool ipv6, bool dnsHijacking, AccessControlProps accessControlProps, bool allowBypass, bool systemProxy, List<String> bypassDomain, String stack, List<String> routeAddress, String backend, String zivpnServer, String zivpnPortRange, String zivpnPassword, String zivpnObfs, bool zivpnEnableUdpGw, int zivpnUdpGwPort, int zivpnCoreCount
 });
 
 
@@ -883,7 +899,7 @@ class __$VpnOptionsCopyWithImpl<$Res>
 
 /// Create a copy of VpnOptions
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? enable = null,Object? port = null,Object? ipv6 = null,Object? dnsHijacking = null,Object? accessControlProps = null,Object? allowBypass = null,Object? systemProxy = null,Object? bypassDomain = null,Object? stack = null,Object? routeAddress = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? enable = null,Object? port = null,Object? ipv6 = null,Object? dnsHijacking = null,Object? accessControlProps = null,Object? allowBypass = null,Object? systemProxy = null,Object? bypassDomain = null,Object? stack = null,Object? routeAddress = null,Object? backend = null,Object? zivpnServer = null,Object? zivpnPortRange = null,Object? zivpnPassword = null,Object? zivpnObfs = null,Object? zivpnEnableUdpGw = null,Object? zivpnUdpGwPort = null,Object? zivpnCoreCount = null,}) {
   return _then(_VpnOptions(
 enable: null == enable ? _self.enable : enable // ignore: cast_nullable_to_non_nullable
 as bool,port: null == port ? _self.port : port // ignore: cast_nullable_to_non_nullable
@@ -895,7 +911,15 @@ as bool,systemProxy: null == systemProxy ? _self.systemProxy : systemProxy // ig
 as bool,bypassDomain: null == bypassDomain ? _self._bypassDomain : bypassDomain // ignore: cast_nullable_to_non_nullable
 as List<String>,stack: null == stack ? _self.stack : stack // ignore: cast_nullable_to_non_nullable
 as String,routeAddress: null == routeAddress ? _self._routeAddress : routeAddress // ignore: cast_nullable_to_non_nullable
-as List<String>,
+as List<String>,backend: null == backend ? _self.backend : backend // ignore: cast_nullable_to_non_nullable
+as String,zivpnServer: null == zivpnServer ? _self.zivpnServer : zivpnServer // ignore: cast_nullable_to_non_nullable
+as String,zivpnPortRange: null == zivpnPortRange ? _self.zivpnPortRange : zivpnPortRange // ignore: cast_nullable_to_non_nullable
+as String,zivpnPassword: null == zivpnPassword ? _self.zivpnPassword : zivpnPassword // ignore: cast_nullable_to_non_nullable
+as String,zivpnObfs: null == zivpnObfs ? _self.zivpnObfs : zivpnObfs // ignore: cast_nullable_to_non_nullable
+as String,zivpnEnableUdpGw: null == zivpnEnableUdpGw ? _self.zivpnEnableUdpGw : zivpnEnableUdpGw // ignore: cast_nullable_to_non_nullable
+as bool,zivpnUdpGwPort: null == zivpnUdpGwPort ? _self.zivpnUdpGwPort : zivpnUdpGwPort // ignore: cast_nullable_to_non_nullable
+as int,zivpnCoreCount: null == zivpnCoreCount ? _self.zivpnCoreCount : zivpnCoreCount // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 

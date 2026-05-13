@@ -152,6 +152,14 @@ _VpnProps _$VpnPropsFromJson(Map<String, dynamic> json) => _VpnProps(
       : AccessControlProps.fromJson(
           json['accessControlProps'] as Map<String, dynamic>,
         ),
+  backend: json['backend'] as String? ?? 'clash',
+  zivpnServer: json['zivpnServer'] as String? ?? '',
+  zivpnPortRange: json['zivpnPortRange'] as String? ?? '',
+  zivpnPassword: json['zivpnPassword'] as String? ?? '',
+  zivpnObfs: json['zivpnObfs'] as String? ?? '',
+  zivpnEnableUdpGw: json['zivpnEnableUdpGw'] as bool? ?? true,
+  zivpnUdpGwPort: (json['zivpnUdpGwPort'] as num?)?.toInt() ?? 7300,
+  zivpnCoreCount: (json['zivpnCoreCount'] as num?)?.toInt() ?? 2,
 );
 
 Map<String, dynamic> _$VpnPropsToJson(_VpnProps instance) => <String, dynamic>{
@@ -161,6 +169,14 @@ Map<String, dynamic> _$VpnPropsToJson(_VpnProps instance) => <String, dynamic>{
   'allowBypass': instance.allowBypass,
   'dnsHijacking': instance.dnsHijacking,
   'accessControlProps': instance.accessControlProps,
+  'backend': instance.backend,
+  'zivpnServer': instance.zivpnServer,
+  'zivpnPortRange': instance.zivpnPortRange,
+  'zivpnPassword': instance.zivpnPassword,
+  'zivpnObfs': instance.zivpnObfs,
+  'zivpnEnableUdpGw': instance.zivpnEnableUdpGw,
+  'zivpnUdpGwPort': instance.zivpnUdpGwPort,
+  'zivpnCoreCount': instance.zivpnCoreCount,
 };
 
 _NetworkProps _$NetworkPropsFromJson(Map<String, dynamic> json) =>

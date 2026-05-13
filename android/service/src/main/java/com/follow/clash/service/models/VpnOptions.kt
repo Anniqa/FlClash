@@ -25,6 +25,14 @@ data class VpnOptions(
     val bypassDomain: List<String>,
     val stack: String,
     val routeAddress: List<String>,
+    val backend: String = "clash",
+    val zivpnServer: String = "",
+    val zivpnPortRange: String = "",
+    val zivpnPassword: String = "",
+    val zivpnObfs: String = "",
+    val zivpnEnableUdpGw: Boolean = true,
+    val zivpnUdpGwPort: Int = 7300,
+    val zivpnCoreCount: Int = 2,
 ) : Parcelable
 
 data class CIDR(val address: InetAddress, val prefixLength: Int)

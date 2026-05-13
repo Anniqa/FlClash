@@ -14,6 +14,13 @@ android {
         minSdk = libs.versions.minSdk.get().toInt()
     }
 
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/zivpn-native/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
     buildFeatures {
         aidl = true
     }
