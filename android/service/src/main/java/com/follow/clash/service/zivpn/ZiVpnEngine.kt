@@ -26,7 +26,7 @@ class ZiVpnEngine(private val context: Context) {
         val server = options.zivpnServer.trim()
         val portRange = options.zivpnPortRange.trim()
         val password = options.zivpnPassword.trim()
-        val obfs = options.zivpnObfs.trim()
+        val obfs = options.zivpnObfs.trim().ifEmpty { DEFAULT_OBFS }
         val coreCount = options.zivpnCoreCount.coerceIn(1, 8)
         val udpgwPort = options.zivpnUdpGwPort.coerceIn(1, 65535)
 
@@ -56,7 +56,7 @@ class ZiVpnEngine(private val context: Context) {
         require(options.zivpnServer.isNotBlank()) { "ZiVPN server is empty" }
         require(options.zivpnPortRange.isNotBlank()) { "ZiVPN port/range is empty" }
         require(options.zivpnPassword.isNotBlank()) { "ZiVPN password/auth is empty" }
-        require(options.zivpnObfs.isNotBlank()) { "ZiVPN obfs is empty" }
+        // Obfs is optional in the UI; empty values fall back to MiniZiVPN's default.
         require(!options.zivpnServer.contains("://")) { "ZiVPN server must be a host/IP, not a URL" }
     }
 
@@ -244,5 +244,6 @@ class ZiVpnEngine(private val context: Context) {
         private const val PDNSD_PORT = 8091
         private const val CORE_READY_TIMEOUT_MS = 8000L
         private const val LOAD_BALANCER_READY_TIMEOUT_MS = 5000L
+        private const val DEFAULT_OBFS = "hu``hqb`c"
     }
 }

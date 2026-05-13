@@ -71,7 +71,10 @@ class _StartButtonState extends ConsumerState<StartButton>
     final hasProfile = ref.watch(
       profilesProvider.select((state) => state.isNotEmpty),
     );
-    if (!hasProfile) {
+    final isZiVpnBackend = ref.watch(
+      vpnSettingProvider.select((state) => state.backend == 'zivpn'),
+    );
+    if (!hasProfile && !isZiVpnBackend) {
       return Container();
     }
     return Theme(

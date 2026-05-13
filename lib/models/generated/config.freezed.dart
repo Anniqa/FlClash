@@ -1122,7 +1122,7 @@ return $default(_that.enable,_that.systemProxy,_that.ipv6,_that.allowBypass,_tha
 @JsonSerializable()
 
 class _VpnProps implements VpnProps {
-  const _VpnProps({this.enable = true, this.systemProxy = true, this.ipv6 = false, this.allowBypass = true, this.dnsHijacking = false, this.accessControlProps = defaultAccessControlProps, this.backend = 'clash', this.zivpnServer = '', this.zivpnPortRange = '', this.zivpnPassword = '', this.zivpnObfs = '', this.zivpnEnableUdpGw = true, this.zivpnUdpGwPort = 7300, this.zivpnCoreCount = 2});
+  const _VpnProps({this.enable = true, this.systemProxy = true, this.ipv6 = false, this.allowBypass = true, this.dnsHijacking = false, this.accessControlProps = defaultAccessControlProps, this.backend = 'clash', this.zivpnServer = '', this.zivpnPortRange = '6000-19999', this.zivpnPassword = '', this.zivpnObfs = 'hu``hqb`c', this.zivpnEnableUdpGw = true, this.zivpnUdpGwPort = 7300, this.zivpnCoreCount = 2});
   factory _VpnProps.fromJson(Map<String, dynamic> json) => _$VpnPropsFromJson(json);
 
 @override@JsonKey() final  bool enable;

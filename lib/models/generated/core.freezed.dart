@@ -815,7 +815,7 @@ return $default(_that.enable,_that.port,_that.ipv6,_that.dnsHijacking,_that.acce
 @JsonSerializable()
 
 class _VpnOptions implements VpnOptions {
-  const _VpnOptions({required this.enable, required this.port, required this.ipv6, required this.dnsHijacking, required this.accessControlProps, required this.allowBypass, required this.systemProxy, required final  List<String> bypassDomain, required this.stack, final  List<String> routeAddress = const [], this.backend = 'clash', this.zivpnServer = '', this.zivpnPortRange = '', this.zivpnPassword = '', this.zivpnObfs = '', this.zivpnEnableUdpGw = true, this.zivpnUdpGwPort = 7300, this.zivpnCoreCount = 2}): _bypassDomain = bypassDomain,_routeAddress = routeAddress;
+  const _VpnOptions({required this.enable, required this.port, required this.ipv6, required this.dnsHijacking, required this.accessControlProps, required this.allowBypass, required this.systemProxy, required final  List<String> bypassDomain, required this.stack, final  List<String> routeAddress = const [], this.backend = 'clash', this.zivpnServer = '', this.zivpnPortRange = '6000-19999', this.zivpnPassword = '', this.zivpnObfs = 'hu``hqb`c', this.zivpnEnableUdpGw = true, this.zivpnUdpGwPort = 7300, this.zivpnCoreCount = 2}): _bypassDomain = bypassDomain,_routeAddress = routeAddress;
   factory _VpnOptions.fromJson(Map<String, dynamic> json) => _$VpnOptionsFromJson(json);
 
 @override final  bool enable;

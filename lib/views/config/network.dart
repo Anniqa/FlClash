@@ -115,7 +115,7 @@ class ZiVpnPortItem extends ConsumerWidget {
     );
     return ListItem.input(
       title: const Text('ZiVPN port/range'),
-      subtitle: Text(value.isEmpty ? 'contoh: 443 atau 10000-20000' : value),
+      subtitle: Text(value.isEmpty ? 'default MiniZiVPN: 6000-19999' : value),
       delegate: InputDelegate(
         title: 'ZiVPN port/range',
         value: value,
@@ -163,7 +163,7 @@ class ZiVpnObfsItem extends ConsumerWidget {
     );
     return ListItem.input(
       title: const Text('ZiVPN obfs'),
-      subtitle: Text(value.isEmpty ? 'obfs/sni sesuai akun ZiVPN' : value),
+      subtitle: Text(value.isEmpty ? 'default MiniZiVPN: hu``hqb`c' : value),
       delegate: InputDelegate(
         title: 'ZiVPN obfs',
         value: value,
