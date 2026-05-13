@@ -63,7 +63,11 @@ jobs:
             -keystore android/app/keystore.jks \
             -storepass "${{ secrets.STORE_PASSWORD }}" \
             -keypass "${{ secrets.KEY_PASSWORD }}" \
-            -alias "${{ secrets.KEY_ALIAS }}" >/dev/null
+            -alias "${{ secrets.KEY_ALIAS }}" \
+            -noprompt >/dev/null || {
+              echo "ERROR: Failed to read keystore. Check KEYSTORE base64 encoding, KEY_ALIAS, STORE_PASSWORD, and KEY_PASSWORD secrets."
+              exit 1
+            }
           {
             echo "keyAlias=${{ secrets.KEY_ALIAS }}"
             echo "storePassword=${{ secrets.STORE_PASSWORD }}"
